@@ -3,7 +3,9 @@ from dotenv import load_dotenv
 
 # import uint
 from web3 import Web3
-import json
+
+from toolkit import Toolkit
+# import json
 
 # PROVIDER_URL = "https://speedy-nodes-nyc.moralis.io/81b3a1be5e6aebb3bbde9e23/eth/kovan"
 PROVIDER_URL = "https://kovan.infura.io/v3/cf34bf113ea14801a4d33a9db6822e5b"
@@ -31,14 +33,14 @@ AAVE_ETHER_CONVERSION = 0.0566
 DAI_ETHER_CONVERSION = 0.000345
 
 
-w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
-w3.eth.handleRevert = True
+# w3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
+# w3.eth.handleRevert = True
 
-def loadAbi(abi):
-    return json.load(open("./abis/%s"%(abi)))
+# def loadAbi(abi):
+    # return json.load(open("./abis/%s"%(abi)))
 
-def getContractInstance(address, abiFile):
-    return w3.eth.contract(address, abi=loadAbi(abiFile))
+# def Toolkit.getContractInstance(address, abiFile):
+    # return Toolkit.w3.eth.contract(address, abi=loadAbi(abiFile))
 
 
 def exec_contract(account, nonce, func):
@@ -50,9 +52,9 @@ def exec_contract(account, nonce, func):
                                              # 'gas': 2500000, 'gasPrice': 2500000})#estimated_gas, #2000000,})
         # transaction = func.buildTransaction({'from': account.address, 'nonce': nonce})
         signed = account.signTransaction(transaction)#, '5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f')
-        trans_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
+        trans_hash = Toolkit.w3.eth.sendRawTransaction(signed.rawTransaction)
         if trans_hash:
-            tx_receipt = w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
+            tx_receipt = Toolkit.w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
     except:
         traceback.print_exc()
         return None
@@ -83,50 +85,50 @@ def liquidate(borrower, liquidator_account, amountAave = -1):
         allowance_before = aave.functions.allowance(liquidator_account.address, lendingPool.address).call()
         # if allowance <= 0:
 
-        nonce = w3.eth.getTransactionCount(liquidator_account.address)
+        nonce = Toolkit.w3.eth.getTransactionCount(liquidator_account.address)
         debtToCover = (borrower_aave_user_data['currentStableDebt'] + borrower_aave_user_data['currentVariableDebt']) * \
                       LIQUIDATION_CLOSE_FACTOR
-        debtToCover = w3.toWei(1, 'ether')
+        debtToCover = Toolkit.w3.toWei(1, 'ether')
         approval_hash = exec_contract(liquidator_account, nonce, aave.functions.approve(lendingPool.address, debtToCover*2))
 
-        # c = w3.eth.getBalance(liquidator_account.address)
+        # c = Toolkit.w3.eth.getBalance(liquidator_account.address)
         # balance = aave.functions.balanceOf(liquidator_account.address).call()
 
         liquidation_func = lendingPool.functions.liquidationCall(
             dai.address,
             aave.address,
             borrower,
-            debtToCover,#w3.toHex(-1),# amountAave,
-            # w3.toWei(amountAave * AAVE_ETHER_CONVERSION, 'ether'),
+            debtToCover,#.Toolkit.w3.toHex(-1),# amountAave,
+            # Toolkit.w3.toWei(amountAave * AAVE_ETHER_CONVERSION, 'ether'),
             False
         )
         # allowance_after = aave.functions.allowance(, lendingPool.address).call()
-        nonce = w3.eth.getTransactionCount(liquidator_account.address)
+        nonce = Toolkit.w3.eth.getTransactionCount(liquidator_account.address)
         tx_hash = exec_contract(liquidator_account,nonce, liquidation_func)
         print("Transaction accepted. %s" % tx_hash)
     except Exception as e:
         print(e)
 
 def transfer(user, liquidator, amountDai):
-    # estimated_gas = w3.eth.estimateGas(txn)
+    # estimated_gas = Toolkit.w3.eth.estimateGas(txn)
     # 'gas': 21000, 'gasPrice': 210000
     transfer_transaction = {
         'from': liquidator,
         'to': user,
-        'value': w3.toWei(amountDai * 0.000345, 'ether'),
-        'nonce': w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB"),
+        'value': Toolkit.w3.toWei(amountDai * 0.000345, 'ether'),
+        'nonce': Toolkit.w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB"),
         'gas': 25000, #estimated_gas, #2000000,
         'gasPrice': 210000
         #'chainId': None,
     }
-    signed_transaction = w3.eth.account.signTransaction(transfer_transaction, "5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
-    # hex = w3.eth.sendRawTransaction(signed_transaction.rawTransaction)
+    signed_transaction = Toolkit.w3.eth.account.signTransaction(transfer_transaction, "5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
+    # hex = Toolkit.w3.eth.sendRawTransaction(signed_transaction.rawTransaction)
 
-# dai = getContractInstance(DAI_KOVAN_ADDRESS, "DAI.json")
-# busd = getContractInstance(BUSD_KOVAN_ADDRESS, "BUSD.json")
-# aave = getContractInstance(AAVE_TOKEN_KOVAN_ADDRESS, "AAVE.json")
+# dai = Toolkit.getContractInstance(DAI_KOVAN_ADDRESS, "DAI.json")
+# busd = Toolkit.getContractInstance(BUSD_KOVAN_ADDRESS, "BUSD.json")
+# aave = Toolkit.getContractInstance(AAVE_TOKEN_KOVAN_ADDRESS, "AAVE.json")
 
-lendingPoolAddressProviderRegistry = getContractInstance("0x1E40B561EC587036f9789aF83236f057D1ed2A90",
+lendingPoolAddressProviderRegistry = Toolkit.getContractInstance("0x1E40B561EC587036f9789aF83236f057D1ed2A90",
                                                          "LENDING_POOL_PROVIDER_REGISTRY.json")
 lendingPool_providers = lendingPoolAddressProviderRegistry.functions.getAddressesProvidersList().call()
 # try:
@@ -134,12 +136,12 @@ lendingpool_provider_address = next(filter(lambda provider: provider != '0x00000
                                            lendingPool_providers))
 # except StopIteration:
 #     pass
-lendingPoolAddressProvider = getContractInstance(lendingpool_provider_address, "LENDING_POOL_PROVIDER.json") # Kovan
-# lendingPoolAddressProvider = getContractInstance("0x88757f2f99175387aB4C6a4b3067c77A695b0349", "LENDING_POOL_PROVIDER.json") # Kovan
+lendingPoolAddressProvider = Toolkit.getContractInstance(lendingpool_provider_address, "LENDING_POOL_PROVIDER.json") # Kovan
+# lendingPoolAddressProvider = Toolkit.getContractInstance("0x88757f2f99175387aB4C6a4b3067c77A695b0349", "LENDING_POOL_PROVIDER.json") # Kovan
 # lendingPool_address = '0x2646FcF7F0AbB1ff279ED9845AdE04019C907EBE'
 lendingPool_address = lendingPoolAddressProvider.functions.getLendingPool().call()
-lendingPool = getContractInstance(lendingPool_address, 'LENDING_POOL.json')
-protocolDataProvider = getContractInstance(PROTOCOL_DATA_PROVIDER, "PROTOCOL_DATA_PROVIDER.json")
+lendingPool = Toolkit.getContractInstance(lendingPool_address, 'LENDING_POOL.json')
+protocolDataProvider = Toolkit.getContractInstance(PROTOCOL_DATA_PROVIDER, "PROTOCOL_DATA_PROVIDER.json")
 
 def init():
     load_dotenv()  # take environment variables from .env.
@@ -148,11 +150,11 @@ reserves = protocolDataProvider.functions.getAllReservesTokens().call()
 #     return
 reserves = dict(reserves)
 aave_address = reserves.get('AAVE', None)
-aave = getContractInstance(aave_address, "AAVE.json")
+aave = Toolkit.getContractInstance(aave_address, "AAVE.json")
 dai_address = reserves.get('DAI', None)
-dai = getContractInstance(dai_address, "DAI.json")
+dai = Toolkit.getContractInstance(dai_address, "DAI.json")
 print(reserves)
-# lendingPool = getContractInstance(
+# lendingPool = Toolkit.getContractInstance(
 #     Get address of latest lendingPool from lendingPoolAddressProvider
     # lendingPoolAddressProvider.functions.getLendingPool().call(),
     # "LENDING_POOL.json"
@@ -160,14 +162,13 @@ print(reserves)
 
 if __name__ == "__main__":
     init()
-    # nonce = w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB")
+    # nonce = Toolkit.w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB")
     # tokens = lendingPoolAddressProvider.functions.getAllReservesTokens()
     # 1 aave = 165.19 dai. 5 dai = 5/165.19 = 0.030268 aave
     aave_debt = 1
     # aave_debt = 0.036022
-    liquidator_account = w3.eth.account.privateKeyToAccount("5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
-    debt_account = w3.eth.account.privateKeyToAccount("6965e8c138ac48e06562a09f867a458d8c96fd51ba45b2012aae0156f8c66feb")
+    liquidator_account = Toolkit.w3.eth.account.privateKeyToAccount("5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
+    debt_account = Toolkit.w3.eth.account.privateKeyToAccount("6965e8c138ac48e06562a09f867a458d8c96fd51ba45b2012aae0156f8c66feb")
     liquidate(debt_account.address, liquidator_account, aave_debt)
 
-    # protocolDataProvider.functions.
 
