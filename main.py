@@ -1,6 +1,7 @@
 import traceback
+from dotenv import load_dotenv
 
-import uint
+# import uint
 from web3 import Web3
 import json
 
@@ -39,7 +40,6 @@ def loadAbi(abi):
 def getContractInstance(address, abiFile):
     return w3.eth.contract(address, abi=loadAbi(abiFile))
 
-# def init():
 
 def exec_contract(account, nonce, func):
     """
@@ -141,7 +141,8 @@ lendingPool_address = lendingPoolAddressProvider.functions.getLendingPool().call
 lendingPool = getContractInstance(lendingPool_address, 'LENDING_POOL.json')
 protocolDataProvider = getContractInstance(PROTOCOL_DATA_PROVIDER, "PROTOCOL_DATA_PROVIDER.json")
 
-# def init():
+def init():
+    load_dotenv()  # take environment variables from .env.
 reserves = protocolDataProvider.functions.getAllReservesTokens().call()
 # if not reserves:
 #     return
@@ -158,7 +159,7 @@ print(reserves)
 # )
 
 if __name__ == "__main__":
-    # init()
+    init()
     # nonce = w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB")
     # tokens = lendingPoolAddressProvider.functions.getAllReservesTokens()
     # 1 aave = 165.19 dai. 5 dai = 5/165.19 = 0.030268 aave

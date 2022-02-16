@@ -1,7 +1,7 @@
 # import the following dependencies
 import json
 
-from eth_typing import Address
+# from eth_typing import Address
 from web3 import Web3
 # from Moralis.Web3API
 import asyncio
