@@ -128,8 +128,8 @@ def transfer(user, liquidator, amountDai):
 # busd = Toolkit.getContractInstance(BUSD_KOVAN_ADDRESS, "BUSD.json")
 # aave = Toolkit.getContractInstance(AAVE_TOKEN_KOVAN_ADDRESS, "AAVE.json")
 
-lendingPoolAddressProviderRegistry = Toolkit.getContractInstance("0x1E40B561EC587036f9789aF83236f057D1ed2A90",
-                                                         "LENDING_POOL_PROVIDER_REGISTRY.json")
+lendingPoolAddressProviderRegistry = Toolkit.getContractInstance("0x1E40B561EC587036f9789aF83236f057D1ed2A90", 
+                                                                 "LENDING_POOL_PROVIDER_REGISTRY.json")
 lendingPool_providers = lendingPoolAddressProviderRegistry.functions.getAddressesProvidersList().call()
 # try:
 lendingpool_provider_address = next(filter(lambda provider: provider != '0x0000000000000000000000000000000000000000',
@@ -145,15 +145,7 @@ protocolDataProvider = Toolkit.getContractInstance(PROTOCOL_DATA_PROVIDER, "PROT
 
 def init():
     load_dotenv()  # take environment variables from .env.
-reserves = protocolDataProvider.functions.getAllReservesTokens().call()
-# if not reserves:
-#     return
-reserves = dict(reserves)
-aave_address = reserves.get('AAVE', None)
-aave = Toolkit.getContractInstance(aave_address, "AAVE.json")
-dai_address = reserves.get('DAI', None)
-dai = Toolkit.getContractInstance(dai_address, "DAI.json")
-print(reserves)
+
 # lendingPool = Toolkit.getContractInstance(
 #     Get address of latest lendingPool from lendingPoolAddressProvider
     # lendingPoolAddressProvider.functions.getLendingPool().call(),

@@ -24,9 +24,4 @@ class UserData:
             res[USER_RESERVE_DATA[i]] = v
         
         return UserData(list(res.values))
-    
-    borrower_aave_user_data = {'currentATokenBalance': borrower_aave_user_data[0], 'currentStableDebt': borrower_aave_user_data[1],
-                     'currentVariableDebt': borrower_aave_user_data[2], 'principalStableDebt': borrower_aave_user_data[3],
-                     'scaledVariableDebt': borrower_aave_user_data[4], 'stableBorrowRate': borrower_aave_user_data[5],
-                     'liquidityRate': borrower_aave_user_data[6], 'stableRateLastUpdated': borrower_aave_user_data[7],
-                     'usageAsCollateralEnabled': borrower_aave_user_data[8]}
+        

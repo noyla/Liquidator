@@ -1,19 +1,16 @@
-# import the following dependencies
 import json
-
-# from eth_typing import Address
-from web3 import Web3
-# from Moralis.Web3API
 import asyncio
 import requests
+from assets_service import AssetsService
+import consts
 
-from main import dai
-
+from web3 import Web3
+from toolkit import LendingPool, Toolkit
 
 # add your blockchain connection information
-provider_url = "https://kovan.infura.io/v3/cf34bf113ea14801a4d33a9db6822e5b"
+# provider_url = "https://kovan.infura.io/v3/cf34bf113ea14801a4d33a9db6822e5b"
 # provider_url = "https://tegzjp8pmscy.usemoralis.com:2053/server"
-web3 = Web3(Web3.HTTPProvider(provider_url))
+web3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
 
 # aave_kovan_contract_address = '0x2646FcF7F0AbB1ff279ED9845AdE04019C907EBE'
 aave_kovan_contract_address = '0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe'
@@ -37,6 +34,7 @@ def is_connected():
 # define function to handle events and print to the console
 def handle_event(event):
     print(Web3.toJSON(event))
+    
 
 
 # asynchronous defined function to loop
@@ -49,10 +47,15 @@ def handle_event(event):
 #         await asyncio.sleep(poll_interval)
 
 def get_events():
-    flashloan_event_filter = contract.events.FlashLoan.createFilter(fromBlock=29756569)
-    deposit_event_filter = contract.events.Deposit.createFilter(fromBlock=29756569)
-    borrow_event_filter = contract.events.Borrow.createFilter(fromBlock=29756569)
-    repay_event_filter = contract.events.Repay.createFilter(fromBlock=29756569)
+    assets_svc = AssetsService()
+    aave = assets_svc.get_asset("AAVE")
+    lending_pool = Toolkit.getContractInstance(LendingPool.address, "LENDING_POOL.json")
+
+    start_block = 29756569
+    flashloan_event_filter = lending_pool.events.FlashLoan.createFilter(fromBlock=start_block-5, toBlock=start_block-1)
+    deposit_event_filter = lending_pool.events.Deposit.createFilter(fromBlock=start_block-5)
+    borrow_event_filter = lending_pool.events.Borrow.createFilter(fromBlock=29756569)
+    repay_event_filter = lending_pool.events.Repay.createFilter(fromBlock=29756569)
     for FlashLoan in flashloan_event_filter.get_all_entries():
         handle_event(FlashLoan)
     for Deposit in deposit_event_filter.get_all_entries():
@@ -84,14 +87,14 @@ def check_user_health(address: str):
 # run an async loop
 # try to run the log_loop function above every 2 seconds
 def main():
-    event_filter = web3.eth.filter({'address': aave_kovan_contract_address, 'fromBlock': 29756569})
+    # event_filter = web3.eth.filter({'address': aave_kovan_contract_address, 'fromBlock': 29756569})
     # logs = web3.eth.getFilterLogs(event_filter.filter_id)
     # print(logs)
     if not is_connected():
         return
-    # get_events()
+    get_events()
 
-    check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
+    # check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
     # check_user_health('0x6208F0064bCdE3eA0A57c3a905cC3201fFb28Ff0')
 
 
