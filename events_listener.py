@@ -1,6 +1,6 @@
 import json
 import asyncio
-import requests
+import redis
 from assets_service import AssetsService
 import consts
 
@@ -23,6 +23,7 @@ aave_factory_abi = json.loads('[{"anonymous":false,"inputs":[{"indexed":true,"in
                               '{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserAccountData","outputs":[{"internalType":"uint256","name":"totalCollateralETH","type":"uint256"},{"internalType":"uint256","name":"totalDebtETH","type":"uint256"},{"internalType":"uint256","name":"availableBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"currentLiquidationThreshold","type":"uint256"},{"internalType":"uint256","name":"ltv","type":"uint256"},{"internalType":"uint256","name":"healthFactor","type":"uint256"}],"stateMutability":"view","type":"function"}]')
 contract = web3.eth.contract(address=aave_kovan_contract_address, abi=aave_factory_abi)
 topics = [web3.sha3(text='Deposit(address,address,address,uint256,uint16)').hex()]
+redis = redis.Redis(host='localhost', port=6379)
 
 HEALTH_FACTOR_THRESHOLD = 1000000000000000000
 
@@ -33,8 +34,18 @@ def is_connected():
 
 # define function to handle events and print to the console
 def handle_event(event):
-    print(Web3.toJSON(event))
-    
+    event_str = Web3.toJSON(event)
+    print(event_str)
+    user = event.args.get('user')
+    on_behalf = event.args.get('onBehalfOf')
+    reserve = event.args.get('reserve')
+    amount = event.args.get('amount')
+    referral = event.args.get('referral')
+    event_type = event.get('event')
+    tx_hash = event.get('transactionHash')
+    redis.set(user, event_str)
+
+
 
 
 # asynchronous defined function to loop
