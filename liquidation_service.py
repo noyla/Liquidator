@@ -17,5 +17,5 @@ class LiquidationService:
     def calculate_debt_to_cover(borrower_user_data: dict):
         debtToCover = (borrower_user_data['currentStableDebt'] + borrower_user_data['currentVariableDebt']) * \
                       consts.LIQUIDATION_CLOSE_FACTOR
-        debtToCover = Toolkit.w3.toWei(1, 'ether')
+        return Toolkit.w3.toWei(1, 'ether')
 

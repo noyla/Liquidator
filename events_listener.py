@@ -5,6 +5,7 @@ from assets_service import AssetsService
 import consts
 
 from web3 import Web3
+from liquidation_service import LiquidationService
 from toolkit import LendingPool, Toolkit
 
 # add your blockchain connection information
@@ -27,25 +28,53 @@ redis = redis.Redis(host='localhost', port=6379)
 
 HEALTH_FACTOR_THRESHOLD = 1000000000000000000
 
+def get_user_data(address: str):
+    user_data = contract.functions.getUserAccountData(address).call()
+    if not user_data:
+        return None
+    user_data = {'totalCollateralETH': user_data[0], 'totalDebtETH': user_data[1], 'availableBorrowsETH': user_data[2],
+                 'currentLiquidationThreshold': user_data[3], 'ltv': user_data[4], 'healthFactor': user_data[5]}
+    print(user_data)
+    return user_data
+
+# class Event:
+#     event_type = None
+
+#     def handle(event):
+#         get_user_data(event.args.get('user'))
+
+# class DepositEvent(Event):    
+#     def handle(data: dict):
+#         pass
+
+
 def is_connected():
     is_connected = web3.isConnected()
     print(is_connected)
     return is_connected
 
+
 # define function to handle events and print to the console
 def handle_event(event):
     event_str = Web3.toJSON(event)
     print(event_str)
+    # event_type = event.get('event')
     user = event.args.get('user')
-    on_behalf = event.args.get('onBehalfOf')
-    reserve = event.args.get('reserve')
-    amount = event.args.get('amount')
-    referral = event.args.get('referral')
-    event_type = event.get('event')
-    tx_hash = event.get('transactionHash')
-    redis.set(user, event_str)
+    key = f'USER_{user}'
 
+    # Save the user data
+    redis.hmset(key, event.args)
 
+    # Check health factor
+    user_data = get_user_data(user)
+    health_factor = user_data['healthFactor'] if user_data else 2
+    if health_factor < 1:
+        print(f"Health factor for user {user} is {health_factor}")
+        liquidation_svc = LiquidationService()
+        debt_to_cover = liquidation_svc.calculate_debt_to_cover()
+        liquidation_svc.liquidate(user, debt_to_cover)
+
+# async def liquidate(user: str, debt_to_cover: str)
 
 
 # asynchronous defined function to loop
@@ -63,27 +92,18 @@ def get_events():
     lending_pool = Toolkit.getContractInstance(LendingPool.address, "LENDING_POOL.json")
 
     start_block = 29756569
-    flashloan_event_filter = lending_pool.events.FlashLoan.createFilter(fromBlock=start_block-5, toBlock=start_block-1)
-    deposit_event_filter = lending_pool.events.Deposit.createFilter(fromBlock=start_block-5)
-    borrow_event_filter = lending_pool.events.Borrow.createFilter(fromBlock=29756569)
-    repay_event_filter = lending_pool.events.Repay.createFilter(fromBlock=29756569)
-    for FlashLoan in flashloan_event_filter.get_all_entries():
+    flashloan_events = lending_pool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block-1)
+    deposit_events = lending_pool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
+    borrow_events = lending_pool.events.Borrow.getLogs(fromBlock=29756569, toBlock=29756569 + 15)
+    repay_events = lending_pool.events.Repay.getLogs(fromBlock=29756569, toBlock=29756569 + 15)
+    for FlashLoan in flashloan_events:
         handle_event(FlashLoan)
-    for Deposit in deposit_event_filter.get_all_entries():
+    for Deposit in deposit_events:
         handle_event(Deposit)
-    for Borrow in borrow_event_filter.get_all_entries():
+    for Borrow in borrow_events:
         handle_event(Borrow)
-    for Repay in repay_event_filter.get_all_entries():
+    for Repay in repay_events:
         handle_event(Repay)
-
-
-def check_user_health(address: str):
-    user_data = contract.functions.getUserAccountData(address).call()
-    if not user_data:
-        return
-    user_data = {'totalCollateralETH': user_data[0], 'totalDebtETH': user_data[1], 'availableBorrowsETH': user_data[2],
-                 'currentLiquidationThreshold': user_data[3], 'ltv': user_data[4], 'healthFactor': user_data[5]}
-    print(user_data)
 
 # def liquidate(address: str):
 #     collateral = DAI_KOVAN_ADDRESS
@@ -107,7 +127,6 @@ def main():
 
     # check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
     # check_user_health('0x6208F0064bCdE3eA0A57c3a905cC3201fFb28Ff0')
-
 
     # event_filter = contract.events.PairCreated.createFilter(fromBlock='latest')
     #block_filter = web3.eth.filter('latest')
