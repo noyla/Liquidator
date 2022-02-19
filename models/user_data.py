@@ -19,9 +19,6 @@ class UserData:
 
     @staticmethod
     def from_raw_list(user_data: list):
-        res = {}
-        for i, v in enumerate(user_data):
-            res[USER_RESERVE_DATA[i]] = v
-        
-        return UserData(list(res.values))
+        return UserData(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4],
+        user_data[5], user_data[6], user_data[7], user_data[8])
         

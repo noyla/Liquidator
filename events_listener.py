@@ -1,3 +1,4 @@
+import copy
 import json
 import asyncio
 import redis
@@ -6,30 +7,17 @@ import consts
 
 from web3 import Web3
 from liquidation_service import LiquidationService
-from toolkit import LendingPool, Toolkit
-
-# add your blockchain connection information
-# provider_url = "https://kovan.infura.io/v3/cf34bf113ea14801a4d33a9db6822e5b"
-# provider_url = "https://tegzjp8pmscy.usemoralis.com:2053/server"
-web3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
+from toolkit import Toolkit
+from pools import LendingPool
 
 # aave_kovan_contract_address = '0x2646FcF7F0AbB1ff279ED9845AdE04019C907EBE'
-aave_kovan_contract_address = '0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe'
-# Borrow / Deposit / Repay / LiquidationCall
-aave_factory_abi = json.loads('[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"reserve","type":"address"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"address","name":"repayer","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Repay","type":"event"},'
-                              '{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"reserve","type":"address"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"address","name":"onBehalfOf","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"borrowRateMode","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"borrowRate","type":"uint256"},{"indexed":true,"internalType":"uint16","name":"referral","type":"uint16"}],"name":"Borrow","type":"event"},'
-                              '{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"reserve","type":"address"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":true,"internalType":"address","name":"onBehalfOf","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":true,"internalType":"uint16","name":"referral","type":"uint16"}],"name":"Deposit","type":"event"},'
-                              '{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"collateralAsset","type":"address"},{"indexed":true,"internalType":"address","name":"debtAsset","type":"address"},{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"debtToCover","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"liquidatedCollateralAmount","type":"uint256"},{"indexed":false,"internalType":"address","name":"liquidator","type":"address"},{"indexed":false,"internalType":"bool","name":"receiveAToken","type":"bool"}],"name":"LiquidationCall","type":"event"},'
-                              '{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"target","type":"address"},{"indexed":true,"internalType":"address","name":"initiator","type":"address"},{"indexed":true,"internalType":"address","name":"asset","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"premium","type":"uint256"},{"indexed":false,"internalType":"uint16","name":"referralCode","type":"uint16"}],"name":"FlashLoan","type":"event"},'
-                              '{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getUserAccountData","outputs":[{"internalType":"uint256","name":"totalCollateralETH","type":"uint256"},{"internalType":"uint256","name":"totalDebtETH","type":"uint256"},{"internalType":"uint256","name":"availableBorrowsETH","type":"uint256"},{"internalType":"uint256","name":"currentLiquidationThreshold","type":"uint256"},{"internalType":"uint256","name":"ltv","type":"uint256"},{"internalType":"uint256","name":"healthFactor","type":"uint256"}],"stateMutability":"view","type":"function"}]')
-contract = web3.eth.contract(address=aave_kovan_contract_address, abi=aave_factory_abi)
-topics = [web3.sha3(text='Deposit(address,address,address,uint256,uint16)').hex()]
+# aave_kovan_contract_address = '0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe'
 redis = redis.Redis(host='localhost', port=6379)
 
 HEALTH_FACTOR_THRESHOLD = 1000000000000000000
 
 def get_user_data(address: str):
-    user_data = contract.functions.getUserAccountData(address).call()
+    user_data = LendingPool.functions.getUserAccountData(address).call()
     if not user_data:
         return None
     user_data = {'totalCollateralETH': user_data[0], 'totalDebtETH': user_data[1], 'availableBorrowsETH': user_data[2],
@@ -49,7 +37,7 @@ def get_user_data(address: str):
 
 
 def is_connected():
-    is_connected = web3.isConnected()
+    is_connected = Toolkit.w3().isConnected()
     print(is_connected)
     return is_connected
 
@@ -58,24 +46,25 @@ def is_connected():
 def handle_event(event):
     event_str = Web3.toJSON(event)
     print(event_str)
-    # event_type = event.get('event')
+    event_type = event.get('event')
     user = event.args.get('user')
-    key = f'USER_{user}'
+    # Add TEST_ prefix if not on mainnet
+    key = f'USER_{user}' if 'mainnet' in consts.PROVIDER_URL else f'TEST_USER_{user}'
 
     # Save the user data
-    redis.hmset(key, event.args)
+    fixed_args = {field: str(val) if isinstance(val, bool) else val for field,val in event.args.items()}
+    redis.hmset(key, fixed_args)
 
     # Check health factor
     user_data = get_user_data(user)
-    health_factor = user_data['healthFactor'] if user_data else 2
-    if health_factor < 1:
+    health_factor = user_data['healthFactor'] if user_data else HEALTH_FACTOR_THRESHOLD+1
+    if health_factor < HEALTH_FACTOR_THRESHOLD:
         print(f"Health factor for user {user} is {health_factor}")
         liquidation_svc = LiquidationService()
-        debt_to_cover = liquidation_svc.calculate_debt_to_cover()
-        liquidation_svc.liquidate(user, debt_to_cover)
+        # debt_to_cover = liquidation_svc.calculate_debt_to_cover()
+        liquidation_svc.liquidate(user)
 
 # async def liquidate(user: str, debt_to_cover: str)
-
 
 # asynchronous defined function to loop
 # this loop sets up an event filter and is looking for new entires for the "PairCreated" event
@@ -87,40 +76,33 @@ def handle_event(event):
 #         await asyncio.sleep(poll_interval)
 
 def get_events():
-    assets_svc = AssetsService()
-    aave = assets_svc.get_asset("AAVE")
-    lending_pool = Toolkit.getContractInstance(LendingPool.address, "LENDING_POOL.json")
+    # start_block = 29756569 # Kovan
+    start_block = 14231845 # Mainnet
+    # withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=start_block-500, toBlock=start_block)
+    # borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=start_block-500, toBlock=start_block)
+    # repay_events = LendingPool.events.Repay.getLogs(fromBlock=start_block-500, toBlock=start_block)
+    # liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=start_block-500, toBlock=start_block)
+    deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
+    # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-35, toBlock=start_block-1)
+    # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
+    for e in deposit_events:
+        handle_event(e)
+    # for e in withdraw_events:
+    #     handle_event(e)
+    # for e in repay_events:
+    #     handle_event(e)
+    # for e in liquidate_events:
+    #     handle_event(e)
+    # for e in flashloan_events:
+        # handle_event(e)
+    # for Deposit in deposit_events:
+    #     handle_event(Deposit)
+    print("Done")
 
-    start_block = 29756569
-    flashloan_events = lending_pool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block-1)
-    deposit_events = lending_pool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
-    borrow_events = lending_pool.events.Borrow.getLogs(fromBlock=29756569, toBlock=29756569 + 15)
-    repay_events = lending_pool.events.Repay.getLogs(fromBlock=29756569, toBlock=29756569 + 15)
-    for FlashLoan in flashloan_events:
-        handle_event(FlashLoan)
-    for Deposit in deposit_events:
-        handle_event(Deposit)
-    for Borrow in borrow_events:
-        handle_event(Borrow)
-    for Repay in repay_events:
-        handle_event(Repay)
 
-# def liquidate(address: str):
-#     collateral = DAI_KOVAN_ADDRESS
-#     reserve = BUSD_KOVAN_ADDRESS
-#     purchase_amount = -1
-#     receive_token = False
-#     dai.address.add
-#     contract.functions.liquidationCall(address).call()
-
-# when main is called
-# create a filter for the latest block and look for the "PairCreated" event for the uniswap factory contract
-# run an async loop
-# try to run the log_loop function above every 2 seconds
 def main():
-    # event_filter = web3.eth.filter({'address': aave_kovan_contract_address, 'fromBlock': 29756569})
-    # logs = web3.eth.getFilterLogs(event_filter.filter_id)
-    # print(logs)
+    debtToCover = 0.922748440720013869
+    et = Toolkit.w3().toWei(debtToCover, 'ether')
     if not is_connected():
         return
     get_events()
