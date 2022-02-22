@@ -5,13 +5,13 @@ from asyncio.constants import DEBUG_STACK_DEPTH
 from typing import Tuple
 from assets_service import AssetsService
 from contracts_service import ContractsService
-from toolkit import Toolkit
-from pools import LendingPool, PriceOracle
+from toolkit import toolkit_
+from pools import LendingPool
 from models.user_data import UserReserveData
 
 class LiquidationService:
     def __init__(self):
-        # self.account = Toolkit.w3().eth.account.privateKeyToAccount(
+        # self.account = toolkit.w3.eth.account.privateKeyToAccount(
         #     os.environ.get("ACCOUNT1_PRIVATE_KEY"))
         self.assets_service = AssetsService()
 
@@ -86,8 +86,8 @@ class LiquidationService:
         # Balance check
         balance = self.assets_service.get_balance(debt_contract)
         if balance < debtToCover:
-            print(f"Not enough funds to liquidate debt. \
-                    Asset address: {debt_contract.address}")
+            print(f"""Not enough funds to liquidate debt.\n
+                    Asset address: {debt_contract.address}""")
             return
 
         allowance = self.assets_service.get_allowance()
@@ -104,11 +104,11 @@ class LiquidationService:
             borrower, # User to liquidate
             debtToCover, # Amount of debt to cover
             liquidated_collateral_amount, # Amount of collateral to liquidate
-            self.account.address, # Liquidator address
+            toolkit_.account.address, # Liquidator address
             True # Receive aToken
         )
-        nonce = Toolkit.w3().eth.getTransactionCount(self.account.address)
-        liquidation_hash = ContractsService.exec_contract(self.account, nonce, liquidation_func)
+        nonce = toolkit_.w3.eth.getTransactionCount(toolkit_.account.address)
+        liquidation_hash = ContractsService.exec_contract(toolkit_.account, nonce, liquidation_func)
 
     # def calculate_debt_to_cover(self, user_data: UserData):
     def calculate_debt_to_cover(self, user_reserve_data: UserReserveData):
@@ -117,7 +117,7 @@ class LiquidationService:
         # debtToCover2 = math.floor(user_data.currentATokenBalance * consts.LIQUIDATION_CLOSE_FACTOR)
         # TODO: check wei conversion, should use asset and not ether.
         return debtToCover
-        # return Toolkit.w3().toWei(debtToCover, 'ether')
+        # return toolkit_.w3.toWei(debtToCover, 'ether')
 
     # def estimate_gas():
-    #     Toolkit.w3().eth.estimate_gas()
+    #     toolkit_.w3.eth.estimate_gas()

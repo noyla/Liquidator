@@ -7,7 +7,7 @@ import consts
 
 from web3 import Web3
 from liquidation_service import LiquidationService
-from toolkit import Toolkit
+from toolkit import toolkit_
 from pools import LendingPool
 
 redis = redis.Redis(host='localhost', port=6379)
@@ -25,7 +25,7 @@ def get_user_data(address: str):
     return user_data
 
 def is_connected():
-    is_connected = Toolkit.w3().isConnected()
+    is_connected = toolkit_.w3.isConnected()
     print(is_connected)
     return is_connected
 
@@ -90,7 +90,7 @@ def get_events():
 
 def main():
     debtToCover = 0.922748440720013869
-    et = Toolkit.w3().toWei(debtToCover, 'ether')
+    et = toolkit_.w3.toWei(debtToCover, 'ether')
     if not is_connected():
         return
     get_events()

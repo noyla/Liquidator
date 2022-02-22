@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 # import uint
 from web3 import Web3
 
-from toolkit import Toolkit
+from toolkit import toolkit_
 from pools import LendingPool, ProtocolDataProvider
 
 DAI_KOVAN_ADDRESS = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD' # DAI token Kovan testnet address
@@ -28,9 +28,9 @@ DAI_ETHER_CONVERSION = 0.000345
 #                                              # 'gas': 2500000, 'gasPrice': 2500000})#estimated_gas, #2000000,})
 #         # transaction = func.buildTransaction({'from': account.address, 'nonce': nonce})
 #         signed = account.signTransaction(transaction)#, '5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f')
-#         trans_hash = Toolkit.w3().eth.sendRawTransaction(signed.rawTransaction)
+#         trans_hash = toolkit.w3.eth.sendRawTransaction(signed.rawTransaction)
 #         if trans_hash:
-#             tx_receipt = Toolkit.w3().eth.waitForTransactionReceipt(trans_hash, timeout=60)
+#             tx_receipt = toolkit.w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
 #     except:
 #         traceback.print_exc()
 #         return None
@@ -59,44 +59,44 @@ def liquidate(borrower, liquidator_account):
         # Approve lendingPool to spend liquidator's funds
         allowance = aave.functions.allowance(liquidator_account.address, LendingPool.address).call()
         if allowance <= 0:
-            nonce = Toolkit.w3().eth.getTransactionCount(liquidator_account.address)
+            nonce = toolkit_.w3.eth.getTransactionCount(liquidator_account.address)
             debtToCover = (borrower_aave_user_data['currentStableDebt'] + borrower_aave_user_data['currentVariableDebt']) * \
                         LIQUIDATION_CLOSE_FACTOR
-            debtToCover = Toolkit.w3().toWei(1, 'ether')
+            debtToCover = toolkit_.w3.toWei(1, 'ether')
             approval_hash = exec_contract(liquidator_account, nonce, aave.functions.approve(LendingPool.address, debtToCover*2))
 
-        # c = Toolkit.w3().eth.getBalance(liquidator_account.address)
+        # c = toolkit.w3.eth.getBalance(liquidator_account.address)
         # balance = aave.functions.balanceOf(liquidator_account.address).call()
 
         liquidation_func = LendingPool.functions.liquidationCall(
             dai.address,
             aave.address,
             borrower,
-            debtToCover,#.Toolkit.w3().toHex(-1),# amountAave,
-            # Toolkit.w3().toWei(amountAave * AAVE_ETHER_CONVERSION, 'ether'),
+            debtToCover,#.toolkit.w3.toHex(-1),# amountAave,
+            # toolkit.w3.toWei(amountAave * AAVE_ETHER_CONVERSION, 'ether'),
             False
         )
         # allowance_after = aave.functions.allowance(, lendingPool.address).call()
-        nonce = Toolkit.w3().eth.getTransactionCount(liquidator_account.address)
+        nonce = toolkit_.w3.eth.getTransactionCount(liquidator_account.address)
         tx_hash = exec_contract(liquidator_account,nonce, liquidation_func)
         print("Transaction accepted. %s" % tx_hash)
     except Exception as e:
         print(e)
 
 def transfer(user, liquidator, amountDai):
-    # estimated_gas = Toolkit.w3().eth.estimateGas(txn)
+    # estimated_gas = toolkit.w3.eth.estimateGas(txn)
     # 'gas': 21000, 'gasPrice': 210000
     transfer_transaction = {
         'from': liquidator,
         'to': user,
-        'value': Toolkit.w3().toWei(amountDai * 0.000345, 'ether'),
-        'nonce': Toolkit.w3().eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB"),
+        'value': toolkit_.w3.toWei(amountDai * 0.000345, 'ether'),
+        'nonce': toolkit_.w3.eth.getTransactionCount("0xaa29b6365eAC1FFf89e82ae24dDf704293ef3bbB"),
         'gas': 25000, #estimated_gas, #2000000,
         'gasPrice': 210000
         #'chainId': None,
     }
-    signed_transaction = Toolkit.w3().eth.account.signTransaction(transfer_transaction, "5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
-    # hex = Toolkit.w3().eth.sendRawTransaction(signed_transaction.rawTransaction)
+    signed_transaction = toolkit_.w3.eth.account.signTransaction(transfer_transaction, "5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
+    # hex = toolkit.w3.eth.sendRawTransaction(signed_transaction.rawTransaction)
 
 # dai = Toolkit.getContractInstance(DAI_KOVAN_ADDRESS, "DAI.json")
 # busd = Toolkit.getContractInstance(BUSD_KOVAN_ADDRESS, "BUSD.json")
@@ -125,8 +125,8 @@ if __name__ == "__main__":
     init()
     aave_debt = 1
     # aave_debt = 0.036022
-    liquidator_account = Toolkit.w3().eth.account.privateKeyToAccount("5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
-    debt_account = Toolkit.w3().eth.account.privateKeyToAccount("6965e8c138ac48e06562a09f867a458d8c96fd51ba45b2012aae0156f8c66feb")
+    liquidator_account = toolkit_.w3.eth.account.privateKeyToAccount("5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
+    debt_account = toolkit_.w3.eth.account.privateKeyToAccount("6965e8c138ac48e06562a09f867a458d8c96fd51ba45b2012aae0156f8c66feb")
     liquidate(debt_account.address, liquidator_account)
 
 

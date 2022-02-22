@@ -1,7 +1,7 @@
 
 import json
 import traceback
-from toolkit import Toolkit
+from toolkit import toolkit_
 
 class ContractsService:
     @staticmethod
@@ -10,7 +10,7 @@ class ContractsService:
 
     @staticmethod
     def getContractInstance(address, abi_filename):
-        return Toolkit.w3().eth.contract(address, abi=ContractsService.loadAbi(abi_filename))
+        return toolkit_.w3.eth.contract(address, abi=ContractsService.loadAbi(abi_filename))
         
     @staticmethod
     def exec_contract(account, nonce, func):
@@ -19,12 +19,11 @@ class ContractsService:
                                                 # 'gas': 2500000, 'gasPrice': 2500000})#estimated_gas, #2000000,})
             # transaction = func.buildTransaction({'from': account.address, 'nonce': nonce})
             signed = account.signTransaction(transaction)#, '5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f')
-            trans_hash = Toolkit.w3().eth.sendRawTransaction(signed.rawTransaction)
+            trans_hash = toolkit_.w3.eth.sendRawTransaction(signed.rawTransaction)
             if trans_hash:
-                tx_receipt = Toolkit.w3().eth.waitForTransactionReceipt(trans_hash, timeout=60)
+                tx_receipt = toolkit_.w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
         except:
             traceback.print_exc()
             return None
         print("Transaction succeeded. hash for func %s. %s" % (func, trans_hash.hex()))
         return trans_hash.hex()
-        

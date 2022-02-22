@@ -5,7 +5,7 @@ from typing import Tuple
 from contracts_service import ContractsService
 from models.reserve_configuration_data import ReserveConfigurationData
 from pools import LendingPool, PriceOracle
-from toolkit import Toolkit
+from toolkit import toolkit_
 from models.user_data import UserReserveData
 
 class AssetsService:
@@ -54,12 +54,12 @@ class AssetsService:
         return PriceOracle.functions.getAssetPrice(asset_address).call()
     
     def approve(asset_contract: str, amount: int):
-        nonce = Toolkit.w3().eth.getTransactionCount(Toolkit.account().address)
-        return ContractsService.exec_contract(Toolkit.account(), nonce, 
+        nonce = toolkit_.w3.eth.getTransactionCount(toolkit_.account.address)
+        return ContractsService.exec_contract(toolkit_.account, nonce, 
                         asset_contract.functions.approve(LendingPool.address, amount))
         
     def get_balance(self, asset_contract: str) -> int:
-        return asset_contract.functions.balanceOf(Toolkit.account().address).call()
+        return asset_contract.functions.balanceOf(toolkit_.account.address).call()
 
     def _init_reserves(self):
         reserves = self.protocolDataProvider.functions.getAllReservesTokens().call()

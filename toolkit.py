@@ -2,30 +2,18 @@ import os
 import consts
 from web3 import Web3
 
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
 
-class Toolkit:
-    # self.web3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
-    # self.web3.eth.handleRevert = True
-
-    # @staticmethod
-    # def loadAbi(abi):
-    #     return json.load(open("./abis/%s"%(abi)))
-
-    # @staticmethod
-    # def getContractInstance(address, abiFile):
-    #     return Toolkit.w3().eth.contract(address, abi=Toolkit.loadAbi(abiFile))
-    
-    @staticmethod
-    def w3():
-        # w3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
-        # w3.eth.handleRevert = True
-        return w3
-    
-    @staticmethod
-    def account():
-        return Toolkit.w3().eth.account.privateKeyToAccount(
+class Toolkit(metaclass=Singleton):
+    def __init__(self) -> None:
+        self.w3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
+        self.w3.eth.handleRevert = True
+        self.account = self.w3.eth.account.privateKeyToAccount(
             os.environ.get("ACCOUNT1_PRIVATE_KEY"))
 
-
-w3 = Web3(Web3.HTTPProvider(consts.PROVIDER_URL))
-w3.eth.handleRevert = True
+toolkit_ = Toolkit()
