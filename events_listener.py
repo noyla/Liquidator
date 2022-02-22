@@ -10,11 +10,10 @@ from liquidation_service import LiquidationService
 from toolkit import Toolkit
 from pools import LendingPool
 
-# aave_kovan_contract_address = '0x2646FcF7F0AbB1ff279ED9845AdE04019C907EBE'
-# aave_kovan_contract_address = '0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe'
 redis = redis.Redis(host='localhost', port=6379)
 
 HEALTH_FACTOR_THRESHOLD = 1000000000000000000
+HEALTH_FACTOR_THRESHOLD = 1151659644431660172
 
 def get_user_data(address: str):
     user_data = LendingPool.functions.getUserAccountData(address).call()
@@ -24,17 +23,6 @@ def get_user_data(address: str):
                  'currentLiquidationThreshold': user_data[3], 'ltv': user_data[4], 'healthFactor': user_data[5]}
     print(user_data)
     return user_data
-
-# class Event:
-#     event_type = None
-
-#     def handle(event):
-#         get_user_data(event.args.get('user'))
-
-# class DepositEvent(Event):    
-#     def handle(data: dict):
-#         pass
-
 
 def is_connected():
     is_connected = Toolkit.w3().isConnected()
@@ -77,15 +65,15 @@ def handle_event(event):
 
 def get_events():
     # start_block = 29756569 # Kovan
-    start_block = 14231845 # Mainnet
+    start_block = 14230925 # Mainnet
     # withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=start_block-500, toBlock=start_block)
     # borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=start_block-500, toBlock=start_block)
-    # repay_events = LendingPool.events.Repay.getLogs(fromBlock=start_block-500, toBlock=start_block)
-    # liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=start_block-500, toBlock=start_block)
-    deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
-    # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-35, toBlock=start_block-1)
+    repay_events = LendingPool.events.Repay.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
+    liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
+    # deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
+    flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
     # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
-    for e in deposit_events:
+    for e in liquidate_events + repay_events + flashloan_events:
         handle_event(e)
     # for e in withdraw_events:
     #     handle_event(e)

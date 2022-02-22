@@ -26,7 +26,8 @@ def _init_protocol_data_provider():
     "PROTOCOL_DATA_PROVIDER.json")
     
 def _init_price_oracle():
-    return ContractsService.getContractInstance(consts.PRICE_ORACLE, "PRICE_ORACLE.json")
+    price_oracle = LendingPoolAddressProvider.functions.getPriceOracle().call()
+    return ContractsService.getContractInstance(price_oracle, "PRICE_ORACLE.json")
 
 LendingPoolAddressProvider = _init_lending_pool_address_provider()
 ProtocolDataProvider = _init_protocol_data_provider()
