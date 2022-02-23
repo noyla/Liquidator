@@ -13,11 +13,11 @@ class ContractsService:
         return toolkit_.w3.eth.contract(address, abi=ContractsService.loadAbi(abi_filename))
         
     @staticmethod
-    def exec_contract(account, nonce, func):
+    def exec_contract(account, nonce, func, gas = None):
         try:
-            transaction = func.buildTransaction({'from': account.address, 'nonce': nonce})
-                                                # 'gas': 2500000, 'gasPrice': 2500000})#estimated_gas, #2000000,})
-            # transaction = func.buildTransaction({'from': account.address, 'nonce': nonce})
+            tx_dict = {'gas': gas} if gas else {}
+            tx_dict.update({'from': account.address, 'nonce': nonce})
+            transaction = func.buildTransaction(tx_dict)#, 'gasPrice': 2500000})#estimated_gas, #2000000,})
             signed = account.signTransaction(transaction)#, '5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f')
             trans_hash = toolkit_.w3.eth.sendRawTransaction(signed.rawTransaction)
             if trans_hash:

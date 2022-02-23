@@ -53,10 +53,10 @@ class AssetsService:
         asset_address = self.reserves.get(asset, None)
         return PriceOracle.functions.getAssetPrice(asset_address).call()
     
-    def approve(asset_contract: str, amount: int):
+    def approve(asset_contract: str, amount: int, gas):
         nonce = toolkit_.w3.eth.getTransactionCount(toolkit_.account.address)
         return ContractsService.exec_contract(toolkit_.account, nonce, 
-                        asset_contract.functions.approve(LendingPool.address, amount))
+                asset_contract.functions.approve(LendingPool.address, amount), gas)
         
     def get_balance(self, asset_contract: str) -> int:
         return asset_contract.functions.balanceOf(toolkit_.account.address).call()

@@ -49,7 +49,6 @@ def handle_event(event):
     if health_factor < HEALTH_FACTOR_THRESHOLD:
         print(f"Health factor for user {user} is {health_factor}")
         liquidation_svc = LiquidationService()
-        # debt_to_cover = liquidation_svc.calculate_debt_to_cover()
         liquidation_svc.liquidate(user)
 
 # async def liquidate(user: str, debt_to_cover: str)
@@ -89,8 +88,17 @@ def get_events():
 
 
 def main():
-    debtToCover = 0.922748440720013869
-    et = toolkit_.w3.toWei(debtToCover, 'ether')
+    # gas = toolkit_.w3.fromWei(48561, 'ether')
+    debtToCover = 2895911583
+    debtPriceUsd = 382283014377909
+    debt_eth = toolkit_.w3.fromWei(debtToCover, 'ether')
+    debtPriceUsd_eth = toolkit_.w3.fromWei(debtPriceUsd, 'ether')
+    collateralPriceLink = toolkit_.w3.fromWei(5343808813475518, 'ether')
+    bonus = toolkit_.w3.fromWei(10650, 'ether')
+    to_liquidate = toolkit_.w3.fromWei(39713805163032, 'ether')
+    gas = toolkit_.w3.fromWei(48561, 'ether')
+    maxGas = toolkit_.w3.fromWei(18348798341403870831, 'ether')
+
     if not is_connected():
         return
     get_events()
