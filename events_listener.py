@@ -6,6 +6,7 @@ from assets_service import AssetsService
 import consts
 
 from web3 import Web3
+from contracts_service import ContractsService
 from liquidation_service import LiquidationService
 from toolkit import toolkit_
 from pools import LendingPool
@@ -13,7 +14,7 @@ from pools import LendingPool
 redis = redis.Redis(host='localhost', port=6379)
 
 HEALTH_FACTOR_THRESHOLD = 1000000000000000000
-HEALTH_FACTOR_THRESHOLD = 1151659644431660172
+HEALTH_FACTOR_THRESHOLD = 1251659644431660172
 
 def get_user_data(address: str):
     user_data = LendingPool.functions.getUserAccountData(address).call()
@@ -45,6 +46,7 @@ def handle_event(event):
 
     # Check health factor
     user_data = get_user_data(user)
+    # persist_user_data(user_data)
     health_factor = user_data['healthFactor'] if user_data else HEALTH_FACTOR_THRESHOLD+1
     if health_factor < HEALTH_FACTOR_THRESHOLD:
         print(f"Health factor for user {user} is {health_factor}")
@@ -67,12 +69,13 @@ def get_events():
     start_block = 14230925 # Mainnet
     # withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=start_block-500, toBlock=start_block)
     # borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=start_block-500, toBlock=start_block)
-    repay_events = LendingPool.events.Repay.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
-    liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
+    # repay_events = LendingPool.events.Repay.getLogs(fromBlock=start_block-5, toBlock=start_block+5)
+    current_block = toolkit_.w3.eth.get_block_number()
+    liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=14266000, toBlock=14271271)
     # deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=start_block-5, toBlock=start_block+10)
-    flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-1, toBlock=start_block+1)
+    # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block+5)
     # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
-    for e in liquidate_events + repay_events + flashloan_events:
+    for e in liquidate_events:# + repay_events + flashloan_events:
         handle_event(e)
     # for e in withdraw_events:
     #     handle_event(e)
@@ -89,13 +92,14 @@ def get_events():
 
 def main():
     # gas = toolkit_.w3.fromWei(48561, 'ether')
-    debtToCover = 2895911583
+    debtToCover = 3553656655
     debtPriceUsd = 382283014377909
     debt_eth = toolkit_.w3.fromWei(debtToCover, 'ether')
     debtPriceUsd_eth = toolkit_.w3.fromWei(debtPriceUsd, 'ether')
     collateralPriceLink = toolkit_.w3.fromWei(5343808813475518, 'ether')
     bonus = toolkit_.w3.fromWei(10650, 'ether')
-    to_liquidate = toolkit_.w3.fromWei(39713805163032, 'ether')
+    292157824180941380574
+    to_liquidate = toolkit_.w3.fromWei(1470593284631612599, 'ether')
     gas = toolkit_.w3.fromWei(48561, 'ether')
     maxGas = toolkit_.w3.fromWei(18348798341403870831, 'ether')
 

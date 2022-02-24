@@ -3,10 +3,10 @@ import consts
 import json
 from typing import Tuple
 from contracts_service import ContractsService
-from models.reserve_configuration_data import ReserveConfigurationData
+from models.db.reserve_configuration_data import Reserve
 from pools import LendingPool, PriceOracle
 from toolkit import toolkit_
-from models.user_data import UserReserveData
+from models.db.user_reserve_data import UserReserveData
 
 class AssetsService:
     def __init__(self):
@@ -20,9 +20,12 @@ class AssetsService:
         return ContractsService.getContractInstance(asset_address, f"{asset}.json")
 
     def get_user_reserve_data(self, asset: str, user: str) -> UserReserveData:
-        user_data = self.protocolDataProvider.functions.getUserReserveData(asset, user).call()
+        asset_address = self.reserves.get(asset, None)
+        user_data = self.protocolDataProvider.functions.getUserReserveData(asset_address, user).call()
         if not user_data:
             return None
+        user_data.append(asset)
+        user_data.append(user)
         return UserReserveData.from_raw_list(user_data)
     
     def get_reserve_configuraion_data(self, asset: str):
@@ -36,15 +39,17 @@ class AssetsService:
         collaterals = []
         debts = []
         for name, address in self.reserves.items():
-            user_data = self.get_user_reserve_data(address, user)
+            user_data = self.get_user_reserve_data(name, user)
             if user_data:
-                if user_data.currentATokenBalance != 0 and user_data.usageAsCollateralEnabled:
-                    collaterals.append({'userReserveData': user_data, 
-                                'reserve': name})
+                if user_data.current_aToken_balance != 0 and user_data.usage_as_collateral_enabled:
+                    user_data.reserve = name
+                    collaterals.append({'userReserveData': user_data})#, 
+                                #'reserve': name})
                     print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_json())}')
-                elif user_data.currentStableDebt or user_data.currentVariableDebt:
-                    debts.append({'userReserveData': user_data,
-                                'reserve': name})
+                elif user_data.current_stable_debt or user_data.current_variable_debt:
+                    user_data.reserve = name
+                    debts.append({'userReserveData': user_data})#,
+                                # 'reserve': name})
                     print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_json())}')
             
         return collaterals, debts
@@ -71,7 +76,9 @@ class AssetsService:
         reserve_configs = {}
         for name, reserve_address in reserves.items():
             res = self.protocolDataProvider.functions.getReserveConfigurationData(reserve_address).call()
-            reserve_configs[name] = ReserveConfigurationData.from_raw_list(res)
+            res.append(name)
+            res.append(reserve_address)
+            reserve_configs[name] = Reserve.from_raw_list(res)
         return reserve_configs
 
 if __name__ == '__main__':

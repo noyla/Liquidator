@@ -7,7 +7,7 @@ from assets_service import AssetsService
 from contracts_service import ContractsService
 from toolkit import toolkit_
 from pools import LendingPool
-from models.user_data import UserReserveData
+from models.db.user_reserve_data import UserReserveData
 
 class LiquidationService:
     def __init__(self):
