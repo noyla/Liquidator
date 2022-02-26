@@ -1,12 +1,12 @@
 from operator import lt
 from db.engine import Base
-from sqlalchemy import Column, String, Integer, Boolean
+from sqlalchemy import Column, String, Integer, Boolean, Table
 
 class Reserve(Base):
     __tablename__ = 'reserves'
 
-    name = Column(String, primary_key=True)
-    address = Column(String)
+    name = Column(String(50), primary_key=True)
+    address = Column(String(60))
     decimals = Column(Integer)
     ltv = Column(Integer) # loan to value
     liquidation_threshold = Column(Integer)
@@ -49,3 +49,10 @@ class Reserve(Base):
             borrowing_enabled=user_data[6], stableborrow_rate_enabled=user_data[7], 
             is_active=user_data[8], is_frozen=user_data[9], 
             name=user_data[10], address=user_data[11])
+    
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = str(getattr(self, column.name))
+
+        return d

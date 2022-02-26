@@ -1,10 +1,13 @@
 import math
 import os
+
+from eth_typing import Address
 import consts
 from asyncio.constants import DEBUG_STACK_DEPTH
 from typing import Tuple
-from assets_service import AssetsService
-from contracts_service import ContractsService
+from services.assets_service import AssetsService
+from services.contracts_service import ContractsService
+from services.users_service import UsersService
 from toolkit import toolkit_
 from pools import LendingPool
 from models.db.user_reserve_data import UserReserveData
@@ -13,7 +16,21 @@ class LiquidationService:
     def __init__(self):
         # self.account = toolkit.w3.eth.account.privateKeyToAccount(
         #     os.environ.get("ACCOUNT1_PRIVATE_KEY"))
-        self.assets_service = AssetsService()
+        self._assets_service = None
+        self._users_service = None
+        pass
+    
+    @property
+    def assets_service(self):
+        if not self._assets_service:
+            self._assets_service = AssetsService()
+        return self._assets_service
+    
+    @property
+    def users_service(self):
+        if not self._users_service:
+            self._users_service = UsersService()
+        return self._users_service
 
     def check_liquidation_profitability(self, borrower: str) -> \
                                         Tuple[UserReserveData, str, float, str, int]:
@@ -27,7 +44,7 @@ class LiquidationService:
         Returns:
             Tuple[UserData, Web3.eth.Eth.contract]: Returns user data and the reserve contract
         """
-        collaterals, debts = self.assets_service.get_collaterals_and_debts(borrower)
+        collaterals, debts = self.users_service.get_collaterals_and_debts(borrower)
         if not (collaterals and debts):
             print(f"Found {len(collateral)} collaterals and {len(debts)} borrowd assets.\n"
                   f"cannot liquidate user {borrower}")
@@ -42,17 +59,19 @@ class LiquidationService:
             if debtToCover > curr_debt[0]:
                 curr_debt = (debtToCover, d)
         chosen_debt = curr_debt[1]
-        debt_contract = self.assets_service.get_asset(chosen_debt['reserve'])
+        debt_contract = self.assets_service.get_asset(
+            chosen_debt['userReserveData'].reserve)
         debtToCover = chosen_debt['debtToCover']
-        chosen_debt['debtPrice'] = self.assets_service.get_asset_price(chosen_debt['reserve'])
+        chosen_debt['debtPrice'] = self.assets_service.get_asset_price(
+            chosen_debt['userReserveData'].reserve)
         # chosen_debt['gasEstimation'] = chosen_debt['debtPrice'] * gas_estimation
             # (approval_gasEstimation + liquidation_gasEstimation)
         
         for collateral in collaterals:            
-            reserve = collateral.get('reserve')            
+            reserve = collateral.get('userReserveData').reserve           
             collateral_price = self.assets_service.get_asset_price(reserve)
             reserve_configurations = self.assets_service.get_reserve_configuraion_data(reserve)
-            collateral['bonus'] = reserve_configurations.liquidationBonus
+            collateral['bonus'] = reserve_configurations.liquidation_bonus
             decimals = reserve_configurations.decimals
 
             collateral['liquidated_collateral_amount'] = (chosen_debt['debtPrice'] * debtToCover * collateral['bonus']) / \
@@ -62,11 +81,12 @@ class LiquidationService:
         
         # Choose the maximum collateral to receive
         chosen_collateral = max(collaterals, key=lambda c: c['liquidated_collateral_amount'])
-        collateral_contract = self.assets_service.get_asset(chosen_collateral['reserve'])
+        collateral_contract = self.assets_service.get_asset(chosen_collateral['userReserveData'].reserve)
 
         # Estimate gas
-        approval_gas_estimation=  debt_contract.functions.approve(
+        approval_gas_estimation = debt_contract.functions.approve(
             LendingPool.address, debtToCover).estimateGas()
+            # toolkit_.account.address, debtToCover).estimateGas()
         
         # TODO: Make liquidation estimateGas() work
         # liquidation_gas_estimation = LendingPool.functions.liquidationCall(collateral_contract.address, 
@@ -80,13 +100,14 @@ class LiquidationService:
         chosen_debt['gasEstimation'] = {'approval': approval_gas_estimation,
                                         'iquidation': liquidation_gas_estimation}
 
-        max_income = chosen_collateral['userReserveData'].currentATokenBalance * \
-                     toolkit_.w3.fromWei(collateral_price, 'ether') * chosen_collateral['bonus']
+        max_income = chosen_collateral['userReserveData'].current_aToken_balance * \
+                     toolkit_.w3.fromWei(collateral_price, 'ether') * \
+                     chosen_collateral['bonus']
         max_fees = chosen_debt['debtPrice'] * \
                    (approval_gas_estimation + liquidation_gas_estimation)
         profit = max_income - max_fees
         if profit <= 0:
-            return None
+            raise Exception(f"Liquidation non profitable for {borrower}.")
         return collateral_contract, chosen_collateral['liquidated_collateral_amount'], \
                debt_contract, debtToCover, chosen_debt['gasEstimation']
                         
@@ -125,14 +146,9 @@ class LiquidationService:
                                                           liquidation_func, 
                                                           gas['liquidation'])
 
-    # def calculate_debt_to_cover(self, user_data: UserData):
     def calculate_debt_to_cover(self, user_reserve_data: UserReserveData):
-        debtToCover = math.floor((user_reserve_data.currentStableDebt + user_reserve_data.currentVariableDebt) * \
+        debtToCover = math.floor((user_reserve_data.current_stable_debt + user_reserve_data.current_variable_debt) * \
                         consts.LIQUIDATION_CLOSE_FACTOR)
         # debtToCover2 = math.floor(user_data.currentATokenBalance * consts.LIQUIDATION_CLOSE_FACTOR)
         # TODO: check wei conversion, should use asset and not ether.
         return debtToCover
-        # return toolkit_.w3.toWei(debtToCover, 'ether')
-
-    # def estimate_gas():
-    #     toolkit_.w3.eth.estimate_gas()

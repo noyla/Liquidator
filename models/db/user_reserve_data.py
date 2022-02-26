@@ -1,21 +1,21 @@
-import json
 from db.engine import Base
 from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey, \
-    TIMESTAMP, Boolean
+    TIMESTAMP, Boolean, Sequence
 
 
 class UserReserveData(Base):
     __tablename__ = 'users_reserve_data'
-
-    user = Column(Integer, primary_key=True)
-    reserve = Column(String, ForeignKey('reserves.name'))
-    current_aToken_balance = Column(BigInteger)
-    current_stable_debt = Column(BigInteger)
-    current_variable_debt = Column(BigInteger)
-    principal_stable_debt = Column(BigInteger)
-    scaled_variable_debt = Column(BigInteger)
-    stable_borrow_rate = Column(Integer)
-    liquidity_rate = Column(Integer)
+    
+    id = Column(Integer, Sequence('user_reserve_data_seq'), primary_key=True)
+    user = Column(String(50), ForeignKey('users.id'))
+    reserve = Column(String(50), ForeignKey('reserves.name'))
+    current_aToken_balance = Column(String(50))
+    current_stable_debt = Column(String(50))
+    current_variable_debt = Column(String(50))
+    principal_stable_debt = Column(String(50))
+    scaled_variable_debt = Column(String(50))
+    stable_borrow_rate = Column(String(50))
+    liquidity_rate = Column(String(50))
     stable_rate_last_updated = Column(TIMESTAMP)
     usage_as_collateral_enabled = Column(Boolean)
 
@@ -42,8 +42,9 @@ class UserReserveData(Base):
         user_data[5], user_data[6], user_data[7], user_data[8], 
         reserve=user_data[9], user=user_data[10])
     
-    def to_json(self):
-        {
-            
-        }
-        return json.dumps(self)
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = str(getattr(self, column.name))
+
+        return d

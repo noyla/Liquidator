@@ -15,5 +15,10 @@ class Toolkit(metaclass=Singleton):
         self.w3.eth.handleRevert = True
         self.account = self.w3.eth.account.privateKeyToAccount(
             os.environ.get("ACCOUNT1_PRIVATE_KEY"))
+    
+    def is_connected(self):
+        is_connected = toolkit_.w3.isConnected()
+        print(is_connected)
+        return is_connected
 
 toolkit_ = Toolkit()

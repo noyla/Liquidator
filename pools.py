@@ -1,5 +1,5 @@
 import consts
-from contracts_service import ContractsService
+from services.contracts_service import ContractsService
 
 
 def _init_lending_pool_address_provider():
