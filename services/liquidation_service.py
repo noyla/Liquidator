@@ -14,11 +14,8 @@ from models.db.user_reserve_data import UserReserveData
 
 class LiquidationService:
     def __init__(self):
-        # self.account = toolkit.w3.eth.account.privateKeyToAccount(
-        #     os.environ.get("ACCOUNT1_PRIVATE_KEY"))
         self._assets_service = None
         self._users_service = None
-        pass
     
     @property
     def assets_service(self):
@@ -45,6 +42,7 @@ class LiquidationService:
             Tuple[UserData, Web3.eth.Eth.contract]: Returns user data and the reserve contract
         """
         collaterals, debts = self.users_service.get_collaterals_and_debts(borrower)
+        self.users_service.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
         if not (collaterals and debts):
             print(f"Found {len(collateral)} collaterals and {len(debts)} borrowd assets.\n"
                   f"cannot liquidate user {borrower}")

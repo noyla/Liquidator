@@ -1,21 +1,17 @@
-# from eth_account import Account
 import consts
 from db.engine import session
-# import json
-# from typing import Tuple
 from services.contracts_service import ContractsService
 from models.db.reserve_configuration_data import Reserve
 from pools import LendingPool, PriceOracle
 from toolkit import toolkit_
-# from models.db.user_reserve_data import UserReserveData
+
 
 class AssetsService:
     def __init__(self):
         self.protocolDataProvider = ContractsService.getContractInstance(consts.PROTOCOL_DATA_PROVIDER, 
         "PROTOCOL_DATA_PROVIDER.json")
         self._reserves = None
-        # self._reserve_configurations = None
-        self._reserve_configurations = self._init_reserve_configs(self.reserves)
+        self._reserve_configurations = None
 
     @property
     def reserves(self):
@@ -62,8 +58,8 @@ class AssetsService:
             res.append(name)
             res.append(reserve_address)
             reserve_configs[name] = Reserve.from_raw_list(res)
-        session.add_all(list(reserve_configs.values()))
-        session.commit()
+        # session.add_all(list(reserve_configs.values()))
+        # session.commit()
         return reserve_configs
 
 if __name__ == '__main__':

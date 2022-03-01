@@ -1,14 +1,18 @@
+import asyncio
+import copy
 import json
+from operator import and_
 import consts
 
 from typing import Tuple, Union
-from db.engine import session
+from db.engine import Base, Session, session
 from models.db.user import User
 from models.db.user_reserve_data import UserReserveData
 from pools import LendingPool
 from services.assets_service import AssetsService
 from services.contracts_service import ContractsService
 from toolkit import toolkit_
+from sqlalchemy import select, and_, or_, insert, inspect, func
 
 
 class UsersService:
@@ -62,14 +66,66 @@ class UsersService:
                                 # 'reserve': name})
                     print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_dict())}')
         
-        self.save_user_reserve_data([c['userReserveData'] for c in collaterals])
         return collaterals, debts
     
-    def save_user_reserve_data(self, user_reserve_data: Union[list, dict]):
-        session.add_all(user_reserve_data)
+    def save_user_reserve_data(self, user_reserve_data: list[UserReserveData]):
+        existing_reserves = session.query(UserReserveData).with_entities(
+            func.concat(UserReserveData.user, '_', UserReserveData.reserve)).filter(
+            UserReserveData.id.in_([d.id for d in user_reserve_data])).all()
+        for data in user_reserve_data:
+            data.id = data.user + '_' + data.reserve
+            insp = inspect(data)
+            if data.id in existing_reserves or (insp.pending or 
+            insp.persistent):
+                continue
+            session.merge(data)
         session.commit()
+        with open(consts.USER_RESERVES_LOGS, 'a') as f:
+                f.write(f'Saved reserves for user:\n {[d.id for d in user_reserve_data]}')
+        
+        # if not exists and not (insp.pending or insp.transient or insp.persistent):
+        # session.add_all(user_reserve_data)
+        # session.commit()
+        # session.saveorupdate(user_reserve_data)
 
-    def save_user(self, user_data: dict):
+    def save_user(self, user_data: User):
         # session.add(user_data)
-        session.merge(user_data)
-        session.commit()
+        # exists = session.query(exists().where(User.id == user_data.id)).scalar()
+        q = session.query(User).filter(User.id == user_data.id)
+        exists = session.query(q.exists()).scalar()
+        insp = inspect(user_data)
+        if not exists and not (insp.pending or insp.persistent):
+            session.add(user_data)
+            session.commit()
+            with open(consts.USER_LOGS, 'a') as f:
+                f.write(f'Saved user {user_data.id}\n')
+
+    
+    async def collect_user_data(self, events):
+        # with session.no_autoflush:
+        try:    
+            count = 0
+            for event in events:
+                count += 1
+                task = asyncio.create_task(self.collect(event))
+                await task
+                if count >= 6:
+                    session.commit()
+                    count = 0
+            # Commit any leftover users.
+            if count % 10 != 0:
+                session.commit()
+        except:
+            session.rollback()
+            raise
+    
+    async def collect(self, event):
+        user = event.args.get('user')
+        user_data = self.get_user_data(user)
+        user_data.id = user
+        collaterals, debts = self.get_collaterals_and_debts(user)
+        self.save_user(user_data)
+
+        if collaterals or debts:
+            self.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
+

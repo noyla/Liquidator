@@ -1,12 +1,13 @@
+from datetime import datetime, timezone
 from db.engine import Base
 from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey, \
-    TIMESTAMP, Boolean, Sequence
+    TIMESTAMP, Boolean, Sequence, DateTime
 
 
 class UserReserveData(Base):
     __tablename__ = 'users_reserve_data'
     
-    id = Column(Integer, Sequence('user_reserve_data_seq'), primary_key=True)
+    id = Column(String(60), primary_key=True)
     user = Column(String(50), ForeignKey('users.id'))
     reserve = Column(String(50), ForeignKey('reserves.name'))
     current_aToken_balance = Column(String(50))
@@ -16,7 +17,7 @@ class UserReserveData(Base):
     scaled_variable_debt = Column(String(50))
     stable_borrow_rate = Column(String(50))
     liquidity_rate = Column(String(50))
-    stable_rate_last_updated = Column(TIMESTAMP)
+    stable_rate_last_updated = Column(DateTime())
     usage_as_collateral_enabled = Column(Boolean)
 
     def __init__(self, current_aToken_balance, current_stable_debt,
@@ -38,9 +39,12 @@ class UserReserveData(Base):
 
     @staticmethod
     def from_raw_list(user_data: list):
-        return UserReserveData(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4],
-        user_data[5], user_data[6], user_data[7], user_data[8], 
-        reserve=user_data[9], user=user_data[10])
+        stable_rate_last_updated = datetime.fromtimestamp(user_data[7], timezone.utc) \
+            if user_data[7] else None
+        
+        return UserReserveData(user_data[0], user_data[1], user_data[2], user_data[3], \
+            user_data[4], user_data[5], user_data[6], stable_rate_last_updated, \
+            user_data[8], reserve=user_data[9], user=user_data[10])
     
     def to_dict(self):
         d = {}

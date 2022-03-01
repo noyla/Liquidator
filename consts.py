@@ -18,3 +18,6 @@ PROVIDER_URL_MORALIS = "https://tegzjp8pmscy.usemoralis.com:2053/server"
 
 # Config
 LIQUIDATION_CLOSE_FACTOR = 0.5
+
+USER_LOGS = 'logs/users.log'
+USER_RESERVES_LOGS = 'logs/user_reserves.log'
