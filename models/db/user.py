@@ -32,3 +32,10 @@ class User(Base):
         total_debt_eth=user['totalDebtETH'], available_borrows_eth=user['availableBorrowsETH'],
         current_liquidation_threshold=user['currentLiquidationThreshold'],
         ltv=user['ltv'], health_factor=user['healthFactor'])
+    
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = str(getattr(self, column.name))
+
+        return d

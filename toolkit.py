@@ -1,4 +1,6 @@
 import os
+
+from dotenv import load_dotenv
 import consts
 from web3 import Web3
 
@@ -22,3 +24,5 @@ class Toolkit(metaclass=Singleton):
         return is_connected
 
 toolkit_ = Toolkit()
+
+load_dotenv()  # take environment variables from .env.

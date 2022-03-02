@@ -42,7 +42,7 @@ class TransactionsListener:
 
         # Check health factor
         user = event.args.get('user')
-        user_data = self.users_service.get_user_data(user)
+        exists, user_data = self.users_service.get_user_data(user)
         user_data.id = user
         self.users_service.save_user(user_data)
         health_factor = user_data.health_factor if user_data else HEALTH_FACTOR_THRESHOLD+1
@@ -69,31 +69,36 @@ class TransactionsListener:
     #         await asyncio.sleep(poll_interval)
 
     def get_events(self):
-        if not toolkit_.is_connected():
-            print("Disconnected from node")
-            return
+        try:
+            if not toolkit_.is_connected():
+                print("Disconnected from node")
+                return
 
-        # start_block = 29756569 # Kovan
-        start_block = 14277154
-        from_block = start_block-1000
-        to_block=start_block
-        withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
-        borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
-        repay_events = LendingPool.events.Repay.getLogs(fromBlock=from_block, toBlock=to_block)
-        # current_block = toolkit_.w3.eth.get_block_number()
-        liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=from_block, toBlock=to_block)
-        deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=from_block, toBlock=to_block)
-        # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block+5)
-        # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
-        for e in borrow_events + withdraw_events + repay_events + deposit_events:# + repay_events + flashloan_events + liquidation_events:
-            yield e
-        print("Done")
+            # start_block = 29756569 # Kovan
+            start_block = 14273154
+            from_block = start_block-2000
+            to_block=start_block
+            withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
+            borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
+            repay_events = LendingPool.events.Repay.getLogs(fromBlock=from_block, toBlock=to_block)
+            # current_block = toolkit_.w3.eth.get_block_number()
+            liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=from_block, toBlock=to_block)
+            deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=from_block, toBlock=to_block)
+            # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block+5)
+            # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
+            for e in borrow_events + withdraw_events + repay_events + deposit_events:# + repay_events + flashloan_events + liquidation_events:
+                yield e
+            print("Done")
+        except Exception as e:
+            print("Error retrieving events.\n %s", traceback.print_exc())
+            return None
 
     def collect_user_data(self, events: list):
         asyncio.run(self.users_service.collect_user_data(events))
 
 
 def main():
+
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
@@ -116,9 +121,9 @@ def main():
         events = listener.get_events()
         listener.collect_user_data(events)
     except Exception as e:
-        traceback.print_exc()
-    finally:
-        session.close()
+        print("Error in Liquidator.\n %s", traceback.print_exc())
+    # finally:
+    #     session.close()
     # check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
     # check_user_health('0x6208F0064bCdE3eA0A57c3a905cC3201fFb28Ff0')
 

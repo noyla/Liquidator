@@ -23,7 +23,7 @@ class ContractsService:
             if trans_hash:
                 tx_receipt = toolkit_.w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
         except:
-            traceback.print_exc()
+            print("Failed to execute contract.\n %s", traceback.print_exc())
             return None
         print("Transaction succeeded. hash for func %s. %s" % (func, trans_hash.hex()))
         return trans_hash.hex()

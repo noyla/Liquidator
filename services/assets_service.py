@@ -46,6 +46,7 @@ class AssetsService:
                 asset_contract.functions.approve(LendingPool.address, amount), gas)
 
     def _init_reserves(self):
+        
         reserves = self.protocolDataProvider.functions.getAllReservesTokens().call()
         if not reserves:
             return {}

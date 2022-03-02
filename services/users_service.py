@@ -2,6 +2,9 @@ import asyncio
 import copy
 import json
 from operator import and_
+import traceback
+
+import redis
 import consts
 
 from typing import Tuple, Union
@@ -20,7 +23,7 @@ class UsersService:
         self.protocolDataProvider = ContractsService.getContractInstance(consts.PROTOCOL_DATA_PROVIDER, 
         "PROTOCOL_DATA_PROVIDER.json")
         self._assets_service = None
-        pass
+        self.redis = redis.Redis()
     
     @property
     def assets_service(self):
@@ -28,14 +31,18 @@ class UsersService:
             self._assets_service = AssetsService()
         return self._assets_service
 
-    def get_user_data(self, address: str):
+    def get_user_data(self, address: str) -> Tuple[bool, User]:
+        exists = self.redis.exists(address)
+        if exists:
+            return True, self.redis.hgetall(address)
+
         user_data = LendingPool.functions.getUserAccountData(address).call()
         if not user_data:
             return None
         user_data = {'totalCollateralETH': user_data[0], 'totalDebtETH': user_data[1], 'availableBorrowsETH': user_data[2],
                     'currentLiquidationThreshold': user_data[3], 'ltv': user_data[4], 'healthFactor': user_data[5]}
         print(user_data)
-        return User.from_dict(user_data)
+        return False, User.from_dict(user_data)
     
     def get_balance(self, asset_contract: str) -> int:
         return asset_contract.functions.balanceOf(toolkit_.account.address).call()
@@ -116,16 +123,25 @@ class UsersService:
             if count % 10 != 0:
                 session.commit()
         except:
-            session.rollback()
-            raise
+            # session.rollback()
+            print('Error: %s', traceback.print_exc())
     
     async def collect(self, event):
         user = event.args.get('user')
-        user_data = self.get_user_data(user)
+        exists, user_data = self.get_user_data(user)
+        if exists:
+            return
         user_data.id = user
         collaterals, debts = self.get_collaterals_and_debts(user)
         self.save_user(user_data)
+        self.redis.hset(user_data.id, mapping=user_data.to_dict())
 
         if collaterals or debts:
             self.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
+    
+    def migrate_to_redis(self):
+        users = session.query(User).all()
+        for u in users:
+            self.redis.hset(u.id, mapping=u.to_dict())
+
 
