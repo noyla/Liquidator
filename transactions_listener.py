@@ -1,9 +1,6 @@
-import copy
-import json
 import asyncio
+import time
 import traceback
-from typing import final
-import consts
 
 from web3 import Web3
 from services.contracts_service import ContractsService
@@ -26,7 +23,7 @@ class TransactionsListener:
         if not self._users_service:
             self._users_service = UsersService()
         return self._users_service
-
+    
     # define function to handle events and print to the console
     def handle_event(self, event):
         # try:
@@ -75,8 +72,9 @@ class TransactionsListener:
                 return
 
             # start_block = 29756569 # Kovan
-            start_block = 14273154
-            from_block = start_block-2000
+            # I started scanning backwards from block 1427961
+            start_block = 14262754
+            from_block = start_block-400
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
@@ -88,13 +86,17 @@ class TransactionsListener:
             # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
             for e in borrow_events + withdraw_events + repay_events + deposit_events:# + repay_events + flashloan_events + liquidation_events:
                 yield e
-            print("Done")
+            print("Finished retrieving events")
         except Exception as e:
             print("Error retrieving events.\n %s", traceback.print_exc())
             return None
 
     def collect_user_data(self, events: list):
-        asyncio.run(self.users_service.collect_user_data(events))
+        try:
+            asyncio.run(self.users_service.collect_user_data(events))
+        except:
+            # session.rollback()
+            print('Error: %s', traceback.print_exc())
 
 
 def main():
@@ -117,9 +119,14 @@ def main():
     # if not is_connected():
     #     return
     try:
+        print('Retrieving events')
         listener = TransactionsListener()
         events = listener.get_events()
+        print(f"Collecting user data")
+        start_time = time.process_time()
         listener.collect_user_data(events)
+        end_time = time.process_time()
+        print(f'Data collection took {end_time - start_time}')
     except Exception as e:
         print("Error in Liquidator.\n %s", traceback.print_exc())
     # finally:

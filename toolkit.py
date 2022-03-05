@@ -20,7 +20,6 @@ class Toolkit(metaclass=Singleton):
     
     def is_connected(self):
         is_connected = toolkit_.w3.isConnected()
-        print(is_connected)
         return is_connected
 
 toolkit_ = Toolkit()
