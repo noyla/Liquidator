@@ -35,7 +35,9 @@ class UserReserveData(Base):
         self.stable_borrow_rate = stable_borrow_rate
         self.liquidity_rate = liquidity_rate
         self.stable_rate_last_updated = stable_rate_last_updated
-        self.usage_as_collateral_enabled = usage_as_collateral_enabled
+        self.usage_as_collateral_enabled = usage_as_collateral_enabled \
+            if isinstance(usage_as_collateral_enabled, bool) else \
+            bool(usage_as_collateral_enabled)
 
     @staticmethod
     def from_raw_list(user_data: list):
@@ -49,6 +51,11 @@ class UserReserveData(Base):
     def to_dict(self):
         d = {}
         for column in self.__table__.columns:
-            d[column.name] = str(getattr(self, column.name))
+            field = getattr(self, column.name)
+            if field is not None and str(field) in \
+            ['True', 'False', 'true', 'false']:
+                d[column.name] = bool(field)
+            else:
+                d[column.name] = str(field)
 
         return d

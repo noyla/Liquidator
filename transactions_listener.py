@@ -73,8 +73,8 @@ class TransactionsListener:
 
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
-            start_block = 14262754
-            from_block = start_block-400
+            start_block = 14258464
+            from_block = start_block-1500
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
@@ -88,7 +88,8 @@ class TransactionsListener:
                 yield e
             print("Finished retrieving events")
         except Exception as e:
-            print("Error retrieving events.\n %s", traceback.print_exc())
+            print("Error retrieving events.\n")
+            traceback.print_exc()
             return None
 
     def collect_user_data(self, events: list):
@@ -96,11 +97,22 @@ class TransactionsListener:
             asyncio.run(self.users_service.collect_user_data(events))
         except:
             # session.rollback()
-            print('Error: %s', traceback.print_exc())
+            traceback.print_exc()
 
+def add_user_reserves(users):
+    svc = UsersService()
+    # borrowers = ['0xdde9C12718217F792228AC1ce4c4a04a92b15735','0x008c8395eAbA2553CDE019aF1Be19A89630E031F']
+    for user in users:
+        collaterals, debts = svc.get_collaterals_and_debts(user)
+        if not collaterals and not debts:
+            continue
+        try:
+            svc.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
+        except:
+            pass
 
 def main():
-
+    
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
@@ -126,11 +138,12 @@ def main():
         start_time = time.process_time()
         listener.collect_user_data(events)
         end_time = time.process_time()
-        print(f'Data collection took {end_time - start_time}')
+        # print(f'Data collection took {end_time - start_time}')
     except Exception as e:
         print("Error in Liquidator.\n %s", traceback.print_exc())
-    # finally:
-    #     session.close()
+    finally:
+        session.close()
+
     # check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
     # check_user_health('0x6208F0064bCdE3eA0A57c3a905cC3201fFb28Ff0')
 

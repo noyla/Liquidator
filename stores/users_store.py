@@ -16,12 +16,15 @@ class UsersStore:
     def create_users_with_reserves(users: list[User], 
                 user_reserves: list[UserReserveData]):
         users = [u.to_dict() for u in users.values()]
-        # user_reserves = [u.to_dict() for u in user_reserves]
-        stmt = insert(User).values(users).prefix_with('IGNORE')
+        user_reserves = [u.to_dict() for u in user_reserves]
+        insert_users_stmt = insert(User).values(users).prefix_with('IGNORE')
+        insert_user_reserves_stmt = insert(UserReserveData).values(user_reserves).\
+            prefix_with('IGNORE')
         # no_update_stmt = stmt.
         # compiled = stmt.compile()
         with engine.connect() as conn:
-            res = conn.execute(stmt)
+            res = conn.execute(insert_users_stmt)
+            res = conn.execute(insert_user_reserves_stmt)
             # conn.commit()
 
 

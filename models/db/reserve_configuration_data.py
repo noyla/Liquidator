@@ -53,6 +53,11 @@ class Reserve(Base):
     def to_dict(self):
         d = {}
         for column in self.__table__.columns:
-            d[column.name] = str(getattr(self, column.name))
+            field = getattr(self, column.name)
+            if field is not None and str(field) in \
+            ['True', 'False', 'true', 'false']:
+                d[column.name] = bool(field)
+            else:
+                d[column.name] = str(field)
 
         return d

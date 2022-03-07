@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 
 # import uint
@@ -73,7 +74,8 @@ def transfer(user, liquidator, amountDai):
         'gasPrice': 210000
         #'chainId': None,
     }
-    signed_transaction = toolkit_.w3.eth.account.signTransaction(transfer_transaction, "5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
+    key = os.environ.get('TESTNET_PRIVATE_KEY')
+    signed_transaction = toolkit_.w3.eth.account.signTransaction(transfer_transaction, key)
     # hex = toolkit.w3.eth.sendRawTransaction(signed_transaction.rawTransaction)
 
 # dai = Toolkit.getContractInstance(DAI_KOVAN_ADDRESS, "DAI.json")
@@ -99,12 +101,14 @@ def transfer(user, liquidator, amountDai):
 
 if __name__ == "__main__":
     svc = UsersService()
-    svc.migrate_to_redis()
+    # svc.migrate_to_redis()
     exists, user_data = svc.get_user_data('0x816E27f645F663743a5DAEDfc9a38ed02D0B2211')
     aave_debt = 1
     # aave_debt = 0.036022
-    liquidator_account = toolkit_.w3.eth.account.privateKeyToAccount("5de576d650dcdbfc7a1d3e947c636ca4e6c9c2df19e40be99e249b9e24d9b06f")
-    debt_account = toolkit_.w3.eth.account.privateKeyToAccount("6965e8c138ac48e06562a09f867a458d8c96fd51ba45b2012aae0156f8c66feb")
+    key = os.environ.get('ACCOUNT1_PRIVATE_KEY')
+    liquidator_account = toolkit_.w3.eth.account.privateKeyToAccount(key)
+    key = os.environ.get('TESTNET_PRIVATE_KEY')
+    debt_account = toolkit_.w3.eth.account.privateKeyToAccount(key)
     # liquidate(debt_account.address, liquidator_account)
 
 

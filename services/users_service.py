@@ -2,6 +2,7 @@ import asyncio
 import functools
 import json
 from operator import and_
+import time
 import traceback
 
 import redis
@@ -18,6 +19,8 @@ from stores.users_store import UsersStore
 from toolkit import toolkit_
 from sqlalchemy import inspect, func
 
+start_time = None
+end_time = None
 
 class UsersService:
     def __init__(self) -> None:
@@ -25,7 +28,7 @@ class UsersService:
         "PROTOCOL_DATA_PROVIDER.json")
         self._assets_service = None
         self._users_store = None
-        self.redis = redis.Redis()
+        self.redis = redis.Redis(charset="utf-8", decode_responses=True)
     
     @property
     def assets_service(self):
@@ -42,13 +45,19 @@ class UsersService:
     def get_user_data(self, address: str) -> Tuple[bool, User]:
         exists = self.redis.exists(address)
         if exists:
-            return True, self.redis.hgetall(address)
-
+            # Temporary redis bug partial user data, if exception occurs,
+            # Move on and retrieve data from the API.
+            try:
+                user = User.from_dict(self.redis.hgetall(address))
+                return True, user
+            except:
+                traceback.print_exc()
+            
         user_data = LendingPool.functions.getUserAccountData(address).call()
         if not user_data:
             return None
-        user_data = {'totalCollateralETH': user_data[0], 'totalDebtETH': user_data[1], 'availableBorrowsETH': user_data[2],
-                    'currentLiquidationThreshold': user_data[3], 'ltv': user_data[4], 'healthFactor': user_data[5]}
+        user_data = {'id': address, 'total_collateral_eth': user_data[0], 'total_debt_eth': user_data[1], 'available_borrows_eth': user_data[2],
+                    'current_liquidation_threshold': user_data[3], 'ltv': user_data[4], 'health_factor': user_data[5]}
         print(user_data)
         return False, User.from_dict(user_data)
     
@@ -72,11 +81,13 @@ class UsersService:
             if user_data:
                 if user_data.current_aToken_balance != 0 and user_data.usage_as_collateral_enabled:
                     user_data.reserve = name
+                    user_data.id = user_data.user + '_' + user_data.reserve
                     collaterals.append({'userReserveData': user_data})#, 
                                 #'reserve': name})
                     print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_dict())}')
                 elif user_data.current_stable_debt or user_data.current_variable_debt:
                     user_data.reserve = name
+                    user_data.id = user_data.user + '_' + user_data.reserve
                     debts.append({'userReserveData': user_data})#,
                                 # 'reserve': name})
                     print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_dict())}')
@@ -90,9 +101,9 @@ class UsersService:
         for data in user_reserve_data:
             data.id = data.user + '_' + data.reserve
             insp = inspect(data)
-            if data.id in existing_reserves or (insp.pending or 
-            insp.persistent):
-                continue
+            # if data.id in existing_reserves or (insp.pending or 
+            # insp.persistent):
+            #     continue
             session.merge(data)
         session.commit()
         with open(consts.USER_RESERVES_LOGS, 'a') as f:
@@ -121,24 +132,44 @@ class UsersService:
         # with session.bind.begin() as conn:
         try:
             count = 0
-            users = {}
-            users_reserves = []
             tasks = []
+            global start_time
+            start_time = time.process_time()
             for event in events:
-                # tasks.append(asyncio.create_task(self.collect(event)))
-                tasks.append(functools.partial(self.collect, event))
+                tasks.append(asyncio.create_task(self.collect(event)))    
+                # tasks.append(functools.partial(self.collect, event))
+                count += 1
+                if count >= consts.TASK_BATCH_SIZE:
+                    res = await asyncio.gather(*[func for func in tasks])
+                    if res:
+                        await self.save_user_data_tuple(res)
+                        tasks.clear()
+                        count = 0
                 
                 # user, user_reserve =  await task
             
             # Schedule three calls *concurrently*:
-            res = await asyncio.gather(*[func() for func in tasks])
+            if count % 10 != 0:
+                res = await asyncio.gather(*[func for func in tasks])
+                if res:
+                    await self.save_user_data_tuple(res)
+            # res = await asyncio.gather(*[func() for func in tasks])
+        except:
+            print('Error: {}'.format(traceback.print_exc()))
+
+    async def save_user_data_tuple(self, res: list[User, UserReserveData]):
+        try:
+            users = {}
+            users_reserves = []
+            count = 0
             for data in res:
                 user = data[0]
                 user_reserves = data[1]
                 if not user and not user_reserves:
                     continue
                 users[user.id] = user
-                users_reserves.extend(user_reserves)
+                if user_reserves:
+                    users_reserves.extend(user_reserves)
                 count += 1
                 if count >= 6:
                     # session.commit()
@@ -151,8 +182,11 @@ class UsersService:
             if count % 10 != 0:
                 self.users_store.create_users_with_reserves(users, 
                                     users_reserves)
+            global end_time
+            end_time = time.process_time()
+            print(f'Data collection took {end_time - start_time}')
         except:
-            print('Error: %s', traceback.print_exc())
+            print('Error: {}'.format(traceback.print_exc()))
 
     
     # async def collect_user_data(self, events):
@@ -180,11 +214,12 @@ class UsersService:
     
     async def collect(self, event):
         user = event.args.get('user')
-        exists, user_data = self.get_user_data(user)
-        if exists:
+        svc = UsersService()
+        exists, user_data = svc.get_user_data(user)
+        if exists or not user_data:
             return {}, []
         user_data.id = user
-        collaterals, debts = self.get_collaterals_and_debts(user)
+        collaterals, debts = svc.get_collaterals_and_debts(user)
         # self.save_user(user_data)
         self.redis.hset(user_data.id, mapping=user_data.to_dict())
 
@@ -197,5 +232,4 @@ class UsersService:
         users = session.query(User).all()
         for u in users:
             self.redis.hset(u.id, mapping=u.to_dict())
-
 

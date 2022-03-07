@@ -21,3 +21,4 @@ LIQUIDATION_CLOSE_FACTOR = 0.5
 
 USER_LOGS = 'logs/users.log'
 USER_RESERVES_LOGS = 'logs/user_reserves.log'
+TASK_BATCH_SIZE = 15
