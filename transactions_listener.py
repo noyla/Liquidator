@@ -3,7 +3,6 @@ import time
 import traceback
 
 from web3 import Web3
-from services.contracts_service import ContractsService
 from services.liquidation_service import LiquidationService
 from services.users_service import UsersService
 from toolkit import toolkit_
@@ -71,10 +70,11 @@ class TransactionsListener:
                 print("Disconnected from node")
                 return
 
+            toolkit_.trace_resoucrce_usage()
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
-            start_block = 14251084
-            from_block = start_block-1000
+            start_block = 14248584
+            from_block = start_block-2000
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)

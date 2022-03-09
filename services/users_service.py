@@ -135,13 +135,18 @@ class UsersService:
             global start_time
             start_time = time.process_time()
             for event in events:
-                tasks.append(asyncio.create_task(self.collect(event)))    
+                tasks.append(asyncio.create_task(self.collect(event)))
+                
                 # tasks.append(functools.partial(self.collect, event))
                 count += 1
                 if count >= consts.TASK_BATCH_SIZE:
+                    print('About to run collection')
+                    toolkit_.trace_resoucrce_usage()
                     res = await asyncio.gather(*[func for func in tasks])
                     if res:
                         await self.save_user_data_tuple(res)
+                        print('Saving users data')
+                        toolkit_.trace_resoucrce_usage()
                         tasks.clear()
                         count = 0
                 
@@ -152,6 +157,8 @@ class UsersService:
                 res = await asyncio.gather(*[func for func in tasks])
                 if res:
                     await self.save_user_data_tuple(res)
+            print('Finished processing all events')
+            toolkit_.trace_resoucrce_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
         except:
             print('Error: {}'.format(traceback.print_exc()))
@@ -170,7 +177,7 @@ class UsersService:
                 if user_reserves:
                     users_reserves.extend(user_reserves)
                 count += 1
-                if count >= 6:
+                if count >= 20:
                     self.users_store.create_users_with_reserves(users, 
                                     users_reserves)
                     self.store_to_redis(users)
@@ -178,7 +185,7 @@ class UsersService:
                     users_reserves.clear()
                     count = 0
             # Commit any leftover users.
-            if count % 10 != 0:
+            if count % 20 != 0:
                 if users or users_reserves:
                     self.users_store.create_users_with_reserves(users, 
                                                                 users_reserves)
