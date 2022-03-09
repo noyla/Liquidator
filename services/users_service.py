@@ -1,7 +1,5 @@
 import asyncio
-import functools
 import json
-from operator import and_
 import time
 import traceback
 
@@ -77,6 +75,7 @@ class UsersService:
         collaterals = []
         debts = []
         for name, address in self.assets_service.reserves.items():
+            # self.assets_service.get_reserve_configuraion_data(name)
             user_data = self.get_user_reserve_data(name, user)
             if user_data:
                 if user_data.current_aToken_balance != 0 and user_data.usage_as_collateral_enabled:
@@ -172,16 +171,18 @@ class UsersService:
                     users_reserves.extend(user_reserves)
                 count += 1
                 if count >= 6:
-                    # session.commit()
                     self.users_store.create_users_with_reserves(users, 
                                     users_reserves)
+                    self.store_to_redis(users)
                     users.clear()
                     users_reserves.clear()
                     count = 0
             # Commit any leftover users.
             if count % 10 != 0:
-                self.users_store.create_users_with_reserves(users, 
-                                    users_reserves)
+                if users or users_reserves:
+                    self.users_store.create_users_with_reserves(users, 
+                                                                users_reserves)
+                    self.store_to_redis(users)
             global end_time
             end_time = time.process_time()
             print(f'Data collection took {end_time - start_time}')
@@ -220,8 +221,6 @@ class UsersService:
             return {}, []
         user_data.id = user
         collaterals, debts = svc.get_collaterals_and_debts(user)
-        # self.save_user(user_data)
-        self.redis.hset(user_data.id, mapping=user_data.to_dict())
 
         if collaterals or debts:
             return user_data, [c['userReserveData'] for c in collaterals + debts]
@@ -232,4 +231,10 @@ class UsersService:
         users = session.query(User).all()
         for u in users:
             self.redis.hset(u.id, mapping=u.to_dict())
+    
+    def store_to_redis(self, users: dict[User]):
+        pipe = self.redis.pipeline()
+        for id, u in users.items():
+            pipe.hset(id, mapping=u.to_dict())
+        pipe.execute()
 

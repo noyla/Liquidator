@@ -23,6 +23,10 @@ class AssetsService:
     def reserve_configurations(self):
         if not self._reserve_configurations:
             self._reserve_configurations = self._init_reserve_configs(self.reserves)
+            # for reserve in self._reserve_configurations.values():
+            #     session.merge(reserve)
+            # session.commit()
+
         return self._reserve_configurations
 
     def get_asset(self, asset: str):
@@ -46,8 +50,8 @@ class AssetsService:
                 asset_contract.functions.approve(LendingPool.address, amount), gas)
 
     def _init_reserves(self):
-        
         reserves = self.protocolDataProvider.functions.getAllReservesTokens().call()
+        # aTokens = self.protocolDataProvider.functions.getAllATokens().call()
         if not reserves:
             return {}
         return dict(reserves)
@@ -62,6 +66,11 @@ class AssetsService:
         # session.add_all(list(reserve_configs.values()))
         # session.commit()
         return reserve_configs
+    
+    def sync_reserve_configurations(self):
+        for reserve in self._reserve_configurations.values():
+            session.merge(reserve)
+        session.commit()
 
 if __name__ == '__main__':
     d = AssetsService()

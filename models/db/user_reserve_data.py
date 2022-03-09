@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from db.engine import Base
-from sqlalchemy import Column, String, Integer, BigInteger, ForeignKey, \
-    TIMESTAMP, Boolean, Sequence, DateTime
+from sqlalchemy import Column, String, ForeignKey, \
+    Boolean, DateTime
+from sqlalchemy.dialects.mysql import insert
 
 
 class UserReserveData(Base):
@@ -41,8 +42,12 @@ class UserReserveData(Base):
 
     @staticmethod
     def from_raw_list(user_data: list):
-        stable_rate_last_updated = datetime.fromtimestamp(user_data[7], timezone.utc) \
-            if user_data[7] else None
+        stable_rate_last_updated = user_data[7]
+        if stable_rate_last_updated:
+            stable_rate_last_updated = datetime.fromtimestamp(user_data[7], timezone.utc).\
+                strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            stable_rate_last_updated = None
         
         return UserReserveData(user_data[0], user_data[1], user_data[2], user_data[3], \
             user_data[4], user_data[5], user_data[6], stable_rate_last_updated, \
@@ -52,10 +57,20 @@ class UserReserveData(Base):
         d = {}
         for column in self.__table__.columns:
             field = getattr(self, column.name)
-            if field is not None and str(field) in \
-            ['True', 'False', 'true', 'false']:
+            if field is None:
+                d[column.name] = field
+            elif str(field) in ['True', 'False', 'true', 'false']:
                 d[column.name] = bool(field)
             else:
                 d[column.name] = str(field)
 
         return d
+    
+    @staticmethod
+    def upsert(users):
+        insert_stmt = insert(UserReserveData).values(users)
+        table = UserReserveData.metadata.tables[UserReserveData.__tablename__]
+        primKeyColNames = [pk_column.name for pk_column in table.primary_key.columns.values()]
+        updatedColNames = [column.name for column in table.columns if column.name not in primKeyColNames]
+        onDuplicate = {colName:getattr(insert_stmt.inserted, colName) for colName in updatedColNames}
+        return insert_stmt.on_duplicate_key_update(onDuplicate)

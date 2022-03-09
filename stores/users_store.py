@@ -20,11 +20,16 @@ class UsersStore:
         user_reserves = [u.to_dict() for u in user_reserves]
 
         # Upsert users & user reserves
-        users_stmt = User.upsert(users)
-        user_reserves_stmt = UserReserveData.upsert(user_reserves)
+        if users:
+            users_stmt = User.upsert(users)
+        if user_reserves:
+            user_reserves_stmt = UserReserveData.upsert(user_reserves)
 
         # compiled = stmt.compile()
         with engine.connect() as conn:
-            res = conn.execute(users_stmt)
-            res = conn.execute(user_reserves_stmt)
+            if users:
+                res = conn.execute(users_stmt)
+            if user_reserves:
+                res = conn.execute(user_reserves_stmt)
+
 

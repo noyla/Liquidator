@@ -10,7 +10,7 @@ from toolkit import toolkit_
 from pools import LendingPool
 from db.engine import session, create_tables
 
-HEALTH_FACTOR_THRESHOLD = 1000000000000000000
+HEALTH_FACTOR_THRESHOLD = toolkit_.w3.toWei(1, 'ether')
 # HEALTH_FACTOR_THRESHOLD = 1251659644431660172
 
 class TransactionsListener:
@@ -73,8 +73,8 @@ class TransactionsListener:
 
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
-            start_block = 14258464
-            from_block = start_block-1500
+            start_block = 14251084
+            from_block = start_block-1000
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
@@ -99,25 +99,26 @@ class TransactionsListener:
             # session.rollback()
             traceback.print_exc()
 
-def add_user_reserves(users):
-    svc = UsersService()
-    # borrowers = ['0xdde9C12718217F792228AC1ce4c4a04a92b15735','0x008c8395eAbA2553CDE019aF1Be19A89630E031F']
-    for user in users:
-        collaterals, debts = svc.get_collaterals_and_debts(user)
-        if not collaterals and not debts:
-            continue
-        try:
-            svc.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
-        except:
-            pass
+# def add_user_reserves(users):
+#     svc = UsersService()
+#     # borrowers = ['0xdde9C12718217F792228AC1ce4c4a04a92b15735','0x008c8395eAbA2553CDE019aF1Be19A89630E031F']
+#     for user in users:
+#         collaterals, debts = svc.get_collaterals_and_debts(user)
+#         if not collaterals and not debts:
+#             continue
+#         try:
+#             #TODO: fix this, saves empty records.
+#             svc.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
+#         except:
+#             pass
 
 def main():
-    
+    # add_user_reserves(['0xa25A9b7c73158B3B34215925796Ce6Aa8100C13a'])
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
 
-    # gas = toolkit_.w3.fromWei(48561, 'ether')
+    value = toolkit_.w3.fromWei(200917325452379653357, 'ether')
     # debtToCover = 3553656655
     # debtPriceUsd = 382283014377909
     # debt_eth = toolkit_.w3.fromWei(debtToCover, 'ether')

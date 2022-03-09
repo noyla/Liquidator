@@ -54,8 +54,9 @@ class Reserve(Base):
         d = {}
         for column in self.__table__.columns:
             field = getattr(self, column.name)
-            if field is not None and str(field) in \
-            ['True', 'False', 'true', 'false']:
+            if field is None:
+                d[column.name] = field
+            elif str(field) in ['True', 'False', 'true', 'false']:
                 d[column.name] = bool(field)
             else:
                 d[column.name] = str(field)
