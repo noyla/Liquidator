@@ -19,7 +19,9 @@ class Toolkit(metaclass=Singleton):
         self.w3.eth.handleRevert = True
         self.account = self.w3.eth.account.privateKeyToAccount(
             os.environ.get("ACCOUNT1_PRIVATE_KEY"))
-        self.redis = redis.Redis(charset="utf-8", decode_responses=True)
+        self.redis = redis.from_url(os.environ.get("REDIS_URL"), 
+                                    charset="utf-8", decode_responses=True)
+        # self.redis = redis.Redis(charset="utf-8", decode_responses=True)
     
     def is_connected(self):
         is_connected = toolkit_.w3.isConnected()
@@ -29,6 +31,7 @@ class Toolkit(metaclass=Singleton):
         process = psutil.Process(os.getpid())
         mem_usage_mb = process.memory_info().rss / 1024 ** 2
         self.redis.set('MEMORY_USAGE', mem_usage_mb)  # in MB 
+        # self.redis.set('MEMORY_USAGE', mem_usage_mb)  # in MB 
         # log.debug(f'Memory usage: {mem_usage_mb}')
         # print(f'Memory usage: {mem_usage_mb}')
 

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from json import tool
 import time
 import traceback
 
@@ -27,7 +28,7 @@ class UsersService:
         "PROTOCOL_DATA_PROVIDER.json")
         self._assets_service = None
         self._users_store = None
-        self.redis = redis.Redis(charset="utf-8", decode_responses=True)
+        # self.redis = redis.Redis(charset="utf-8", decode_responses=True)
     
     @property
     def assets_service(self):
@@ -42,12 +43,14 @@ class UsersService:
         return self._users_store
 
     def get_user_data(self, address: str) -> Tuple[bool, User]:
-        exists = self.redis.exists(address)
+        # exists = self.redis.exists(address)
+        exists = toolkit_.redis.exists(address)
         if exists:
             # Temporary redis bug partial user data, if exception occurs,
             # Move on and retrieve data from the API.
             try:
-                user = User.from_dict(self.redis.hgetall(address))
+                # user = User.from_dict(self.redis.hgetall(address))
+                user = User.from_dict(toolkit_.redis.hgetall(address))
                 return True, user
             except:
                 log.error(f'Error getting user data \n Error: \
@@ -245,10 +248,12 @@ class UsersService:
     def migrate_to_redis(self):
         users = session.query(User).all()
         for u in users:
-            self.redis.hset(u.id, mapping=u.to_dict())
+            toolkit_.redis.hset(u.id, mapping=u.to_dict())
+            # self.redis.hset(u.id, mapping=u.to_dict())
     
     def store_to_redis(self, users: dict[User]):
-        pipe = self.redis.pipeline()
+        # pipe = self.redis.pipeline()
+        pipe = toolkit_.redis.pipeline()
         for id, u in users.items():
             pipe.hset(id, mapping=u.to_dict())
         pipe.execute()

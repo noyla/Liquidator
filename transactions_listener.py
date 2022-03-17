@@ -1,5 +1,6 @@
 import asyncio
-import time
+import os
+import redis
 import traceback
 
 from web3 import Web3
@@ -66,7 +67,7 @@ class TransactionsListener:
     #             handle_event(PairCreated)
     #         await asyncio.sleep(poll_interval)
 
-    def get_events(self):
+    def get_events(self, block, len):
         try:
             if not toolkit_.is_connected():
                 log.error("Disconnected from node")
@@ -75,8 +76,8 @@ class TransactionsListener:
             toolkit_.trace_resoucrce_usage()
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
-            start_block = 14243784
-            from_block = start_block-100
+            start_block = block # 14243784
+            from_block = start_block-len
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
@@ -102,6 +103,34 @@ class TransactionsListener:
             log.error(f'Error collecting user data \
                 {traceback.print_exc()}')
 
+def run():
+    try:
+        red = redis.Redis(charset="utf-8", decode_responses=True)
+        start_block = red.get('CURR_BLOCK')  # in MB 
+        if not start_block:
+            log.error('Start block not set in redis')
+            return
+
+        curr_block = int(start_block)
+        events_len = int(os.environ.get('EVENTS_LENGTH'))
+        listener = TransactionsListener()
+        for i in range (1, int(os.environ.get('MAX_EVENT_SCAN_ITERATIONS'))):
+            log.info(f'Retrieving events from block {curr_block}')
+            events = listener.get_events(curr_block, events_len)
+            log.info("Collecting user data")
+            # start_time = time.process_time()
+            listener.collect_user_data(events)
+            curr_block -= events_len
+            red.set('CURR_BLOCK', curr_block)
+            # end_time = time.process_time()
+            # print(f'Data collection took {end_time - start_time}')
+        log.info(f'Done.')
+    except Exception as e:
+        log.error(f'Error in Liquidator.\n Error: \
+                {traceback.print_exc()}')
+    finally:
+        session.close()
+
 # def add_user_reserves(users):
 #     svc = UsersService()
 #     # borrowers = ['0xdde9C12718217F792228AC1ce4c4a04a92b15735','0x008c8395eAbA2553CDE019aF1Be19A89630E031F']
@@ -120,8 +149,9 @@ def main():
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
+    run()
 
-    value = toolkit_.w3.fromWei(200917325452379653357, 'ether')
+    # value = toolkit_.w3.fromWei(200917325452379653357, 'ether')
     # debtToCover = 3553656655
     # debtPriceUsd = 382283014377909
     # debt_eth = toolkit_.w3.fromWei(debtToCover, 'ether')
@@ -134,20 +164,6 @@ def main():
 
     # if not is_connected():
     #     return
-    try:
-        log.info('Retrieving events')
-        listener = TransactionsListener()
-        events = listener.get_events()
-        log.info("Collecting user data")
-        start_time = time.process_time()
-        listener.collect_user_data(events)
-        end_time = time.process_time()
-        # print(f'Data collection took {end_time - start_time}')
-    except Exception as e:
-        log.error(f'Error in Liquidator.\n Error: \
-                {traceback.print_exc()}')
-    finally:
-        session.close()
 
     # check_user_health('0x9998b4021d410c1E8A7C512EF68c9d613B5B1667')
     # check_user_health('0x6208F0064bCdE3eA0A57c3a905cC3201fFb28Ff0')

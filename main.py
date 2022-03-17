@@ -1,6 +1,5 @@
 from datetime import datetime
 import os
-from dotenv import load_dotenv
 
 # import uint
 from web3 import Web3
@@ -101,17 +100,15 @@ def transfer(user, liquidator, amountDai):
 
 
 if __name__ == "__main__":
-    datetime_object = datetime.strptime('2022-03-07 04:13:03+00:00', '%Y-%m-%d %H:%M:%S%z')
-    datetime_object.strftime('%Y-%m-%d %H:%M:%S')
-    svc = UsersService()
+    # datetime_object = datetime.strptime('2022-03-07 04:13:03+00:00', '%Y-%m-%d %H:%M:%S%z')
+    # datetime_object.strftime('%Y-%m-%d %H:%M:%S')
+    # svc = UsersService()
     # svc.migrate_to_redis()
-    exists, user_data = svc.get_user_data('0x816E27f645F663743a5DAEDfc9a38ed02D0B2211')
-    aave_debt = 1
-    # aave_debt = 0.036022
-    key = os.environ.get('ACCOUNT1_PRIVATE_KEY')
-    liquidator_account = toolkit_.w3.eth.account.privateKeyToAccount(key)
-    key = os.environ.get('TESTNET_PRIVATE_KEY')
-    debt_account = toolkit_.w3.eth.account.privateKeyToAccount(key)
-    # liquidate(debt_account.address, liquidator_account)
+    # exists, user_data = svc.get_user_data('0x816E27f645F663743a5DAEDfc9a38ed02D0B2211')
+    # aave_debt = 1
+
+    
+
+
 
 
