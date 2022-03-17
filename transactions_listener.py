@@ -8,6 +8,7 @@ from services.users_service import UsersService
 from toolkit import toolkit_
 from pools import LendingPool
 from db.engine import session, create_tables
+from logger import log
 
 HEALTH_FACTOR_THRESHOLD = toolkit_.w3.toWei(1, 'ether')
 # HEALTH_FACTOR_THRESHOLD = 1251659644431660172
@@ -43,7 +44,8 @@ class TransactionsListener:
         self.users_service.save_user(user_data)
         health_factor = user_data.health_factor if user_data else HEALTH_FACTOR_THRESHOLD+1
         if health_factor < HEALTH_FACTOR_THRESHOLD:
-            print(f"Health factor for user {user} is {health_factor}")
+            log.info(f"Health factor for user {user} is {health_factor}")
+            # print(f"Health factor for user {user} is {health_factor}")
             liquidation_svc = LiquidationService()
             liquidation_svc.liquidate(user)
         # except Exception as e:
@@ -67,14 +69,14 @@ class TransactionsListener:
     def get_events(self):
         try:
             if not toolkit_.is_connected():
-                print("Disconnected from node")
+                log.error("Disconnected from node")
                 return
 
             toolkit_.trace_resoucrce_usage()
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
-            start_block = 14248584
-            from_block = start_block-2000
+            start_block = 14243784
+            from_block = start_block-100
             to_block=start_block
             withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
             borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
@@ -86,10 +88,10 @@ class TransactionsListener:
             # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
             for e in borrow_events + withdraw_events + repay_events + deposit_events:# + repay_events + flashloan_events + liquidation_events:
                 yield e
-            print("Finished retrieving events")
+            log.info("Finished retrieving events")
         except Exception as e:
-            print("Error retrieving events.\n")
-            traceback.print_exc()
+            log.error(f"Error retrieving events.\n Error: \
+                {traceback.print_exc()}")
             return None
 
     def collect_user_data(self, events: list):
@@ -97,7 +99,8 @@ class TransactionsListener:
             asyncio.run(self.users_service.collect_user_data(events))
         except:
             # session.rollback()
-            traceback.print_exc()
+            log.error(f'Error collecting user data \
+                {traceback.print_exc()}')
 
 # def add_user_reserves(users):
 #     svc = UsersService()
@@ -132,16 +135,17 @@ def main():
     # if not is_connected():
     #     return
     try:
-        print('Retrieving events')
+        log.info('Retrieving events')
         listener = TransactionsListener()
         events = listener.get_events()
-        print(f"Collecting user data")
+        log.info("Collecting user data")
         start_time = time.process_time()
         listener.collect_user_data(events)
         end_time = time.process_time()
         # print(f'Data collection took {end_time - start_time}')
     except Exception as e:
-        print("Error in Liquidator.\n %s", traceback.print_exc())
+        log.error(f'Error in Liquidator.\n Error: \
+                {traceback.print_exc()}')
     finally:
         session.close()
 

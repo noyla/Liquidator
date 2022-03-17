@@ -2,6 +2,7 @@
 import json
 import traceback
 from toolkit import toolkit_
+from logger import log
 
 class ContractsService:
     @staticmethod
@@ -23,8 +24,9 @@ class ContractsService:
             if trans_hash:
                 tx_receipt = toolkit_.w3.eth.waitForTransactionReceipt(trans_hash, timeout=60)
         except:
-            print("Failed to execute contract.\n")
-            traceback.print_exc()
+            log.error(f'Failed to execute contract.\n Error: \
+            {traceback.print_exc()}')
             return None
-        print("Transaction succeeded. hash for func %s. %s" % (func, trans_hash.hex()))
+        log.info(f'Transaction succeeded. hash for func {func} \
+                {trans_hash.hex()}')
         return trans_hash.hex()

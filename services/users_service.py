@@ -16,6 +16,7 @@ from services.contracts_service import ContractsService
 from stores.users_store import UsersStore
 from toolkit import toolkit_
 from sqlalchemy import inspect, func
+from logger import log
 
 start_time = None
 end_time = None
@@ -49,14 +50,15 @@ class UsersService:
                 user = User.from_dict(self.redis.hgetall(address))
                 return True, user
             except:
-                traceback.print_exc()
+                log.error(f'Error getting user data \n Error: \
+                    {traceback.print_exc()}')
             
         user_data = LendingPool.functions.getUserAccountData(address).call()
         if not user_data:
             return None
         user_data = {'id': address, 'total_collateral_eth': user_data[0], 'total_debt_eth': user_data[1], 'available_borrows_eth': user_data[2],
                     'current_liquidation_threshold': user_data[3], 'ltv': user_data[4], 'health_factor': user_data[5]}
-        print(user_data)
+        log.debug(f'User data: {user_data}')
         return False, User.from_dict(user_data)
     
     def get_balance(self, asset_contract: str) -> int:
@@ -83,13 +85,15 @@ class UsersService:
                     user_data.id = user_data.user + '_' + user_data.reserve
                     collaterals.append({'userReserveData': user_data})#, 
                                 #'reserve': name})
-                    print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_dict())}')
+                    log.info(f'User Reserve Data for reserve {name}: \
+                            {json.dumps(user_data.to_dict())}')
                 elif user_data.current_stable_debt or user_data.current_variable_debt:
                     user_data.reserve = name
                     user_data.id = user_data.user + '_' + user_data.reserve
                     debts.append({'userReserveData': user_data})#,
                                 # 'reserve': name})
-                    print(f'User Reserve Data for reserve {name}: {json.dumps(user_data.to_dict())}')
+                    log.info(f'User Reserve Data for reserve {name}: \
+                        {json.dumps(user_data.to_dict())}')
         
         return collaterals, debts
     
@@ -105,8 +109,10 @@ class UsersService:
             #     continue
             session.merge(data)
         session.commit()
-        with open(consts.USER_RESERVES_LOGS, 'a') as f:
-                f.write(f'Saved reserves for user:\n {[d.id for d in user_reserve_data]}')
+        log.info(f'Saved reserves for user:\n \
+                {[d.id for d in user_reserve_data]}')
+        # with open(consts.USER_RESERVES_LOGS, 'a') as f:
+        #         f.write(f'Saved reserves for user:\n {[d.id for d in user_reserve_data]}')
         
         # if not exists and not (insp.pending or insp.transient or insp.persistent):
         # session.add_all(user_reserve_data)
@@ -122,8 +128,9 @@ class UsersService:
         if not exists and not (insp.pending or insp.persistent):
             session.add(user_data)
             session.commit()
-            with open(consts.USER_LOGS, 'a') as f:
-                f.write(f'Saved user {user_data.id}\n')
+            log.info(f'Saved user {user_data.id}\n')
+            # with open(consts.USER_LOGS, 'a') as f:
+            #     f.write(f'Saved user {user_data.id}\n')
 
 
     async def collect_user_data(self, events):
@@ -140,12 +147,12 @@ class UsersService:
                 # tasks.append(functools.partial(self.collect, event))
                 count += 1
                 if count >= consts.TASK_BATCH_SIZE:
-                    print('About to run collection')
+                    log.info('About to run collection')
                     toolkit_.trace_resoucrce_usage()
                     res = await asyncio.gather(*[func for func in tasks])
                     if res:
                         await self.save_user_data_tuple(res)
-                        print('Saving users data')
+                        log.info('Saving users data')
                         toolkit_.trace_resoucrce_usage()
                         tasks.clear()
                         count = 0
@@ -157,11 +164,11 @@ class UsersService:
                 res = await asyncio.gather(*[func for func in tasks])
                 if res:
                     await self.save_user_data_tuple(res)
-            print('Finished processing all events')
+            log.info('Finished processing all events')
             toolkit_.trace_resoucrce_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
         except:
-            print('Error: {}'.format(traceback.print_exc()))
+            log.error('Error: {}'.format(traceback.print_exc()))
 
     async def save_user_data_tuple(self, res: list[User, UserReserveData]):
         try:
@@ -186,15 +193,16 @@ class UsersService:
                     count = 0
             # Commit any leftover users.
             if count % 20 != 0:
+                log.info('Storing leftovers from last batch')
                 if users or users_reserves:
                     self.users_store.create_users_with_reserves(users, 
                                                                 users_reserves)
                     self.store_to_redis(users)
             global end_time
             end_time = time.process_time()
-            print(f'Data collection took {end_time - start_time}')
+            log.info(f'Data collection took {end_time - start_time}')
         except:
-            print('Error: {}'.format(traceback.print_exc()))
+            log.error('Error: {}'.format(traceback.print_exc()))
 
     
     # async def collect_user_data(self, events):

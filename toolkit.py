@@ -4,6 +4,7 @@ import consts
 
 from dotenv import load_dotenv
 from web3 import Web3
+from logger import log
 
 class Singleton(type):
     _instances = {}
@@ -28,7 +29,8 @@ class Toolkit(metaclass=Singleton):
         process = psutil.Process(os.getpid())
         mem_usage_mb = process.memory_info().rss / 1024 ** 2
         self.redis.set('MEMORY_USAGE', mem_usage_mb)  # in MB 
-        print(f'Memory usage: {mem_usage_mb}')
+        # log.debug(f'Memory usage: {mem_usage_mb}')
+        # print(f'Memory usage: {mem_usage_mb}')
 
 toolkit_ = Toolkit()
 

@@ -1,9 +1,6 @@
 import math
-import os
 
-from eth_typing import Address
 import consts
-from asyncio.constants import DEBUG_STACK_DEPTH
 from typing import Tuple
 from services.assets_service import AssetsService
 from services.contracts_service import ContractsService
@@ -11,6 +8,7 @@ from services.users_service import UsersService
 from toolkit import toolkit_
 from pools import LendingPool
 from models.db.user_reserve_data import UserReserveData
+from logger import log
 
 class LiquidationService:
     def __init__(self):
@@ -44,7 +42,7 @@ class LiquidationService:
         collaterals, debts = self.users_service.get_collaterals_and_debts(borrower)
         self.users_service.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
         if not (collaterals and debts):
-            print(f"Found {len(collateral)} collaterals and {len(debts)} borrowd assets.\n"
+            log(f"Found {len(collateral)} collaterals and {len(debts)} borrowd assets.\n"
                   f"cannot liquidate user {borrower}")
             return
         
@@ -75,7 +73,7 @@ class LiquidationService:
             collateral['liquidated_collateral_amount'] = (chosen_debt['debtPrice'] * debtToCover * collateral['bonus']) / \
                 collateral_price * decimals
             
-            print(f"Max liquidated collateral for reserve {reserve}: {collateral['liquidated_collateral_amount']}")
+            log.info(f"Max liquidated collateral for reserve {reserve}: {collateral['liquidated_collateral_amount']}")
         
         # Choose the maximum collateral to receive
         chosen_collateral = max(collaterals, key=lambda c: c['liquidated_collateral_amount'])
@@ -117,8 +115,8 @@ class LiquidationService:
         # Balance check
         balance = self.assets_service.get_balance(debt_contract)
         if balance < debtToCover:
-            print(f"""Not enough funds to liquidate debt.\n
-                    Asset address: {debt_contract.address}""")
+            log.info(f"Not enough funds to liquidate debt.\n \
+                    Asset address: {debt_contract.address}")
             return
 
         allowance = self.assets_service.get_allowance()
