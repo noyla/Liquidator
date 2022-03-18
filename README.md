@@ -1,2 +1,2 @@
 # Liquidator
-Decentralized Finance Debt Liquidator
+DeFi AAVE Platform Debt Liquidator
