@@ -19,8 +19,9 @@ class Toolkit(metaclass=Singleton):
         self.w3.eth.handleRevert = True
         self.account = self.w3.eth.account.privateKeyToAccount(
             os.environ.get("ACCOUNT1_PRIVATE_KEY"))
-        self.redis = redis.from_url(os.environ.get("REDIS_URL"), 
-                                    charset="utf-8", decode_responses=True)
+        # password = os.environ.get("REDIS_PASSWORD").encode()
+        url = os.environ.get("REDIS_URL")
+        self.redis = redis.from_url(url, charset="utf-8", decode_responses=True)
         # self.redis = redis.Redis(charset="utf-8", decode_responses=True)
     
     def is_connected(self):
