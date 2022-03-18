@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -5,7 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 # create an engine
 # engine = create_engine('mysql+pymysql://root:password1@127.0.0.1:3306/liquidator')
-engine = create_engine('mariadb+pymysql://root:password1@127.0.0.1:3306/liquidator')
+engine = create_engine(os.environ.get('JAWSDB_MARIA_URL'))
 # engine = create_engine('postgresql://usr:pass@localhost:5432/sqlalchemy')
 Base = declarative_base(engine)
 
