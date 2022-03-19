@@ -151,12 +151,12 @@ class UsersService:
                 count += 1
                 if count >= consts.TASK_BATCH_SIZE:
                     log.info('About to run collection')
-                    toolkit_.trace_resoucrce_usage()
+                    toolkit_.trace_resource_usage()
                     res = await asyncio.gather(*[func for func in tasks])
                     if res:
                         await self.save_user_data_tuple(res)
                         log.info('Saving users data')
-                        toolkit_.trace_resoucrce_usage()
+                        toolkit_.trace_resource_usage()
                         tasks.clear()
                         count = 0
                 
@@ -168,7 +168,7 @@ class UsersService:
                 if res:
                     await self.save_user_data_tuple(res)
             log.info('Finished processing all events')
-            toolkit_.trace_resoucrce_usage()
+            toolkit_.trace_resource_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
         except:
             log.error('Error: {}'.format(traceback.print_exc()))

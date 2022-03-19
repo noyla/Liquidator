@@ -28,7 +28,7 @@ class Toolkit(metaclass=Singleton):
         is_connected = toolkit_.w3.isConnected()
         return is_connected
     
-    def trace_resoucrce_usage(self):
+    def trace_resource_usage(self):
         process = psutil.Process(os.getpid())
         mem_usage_mb = process.memory_info().rss / 1024 ** 2
         self.redis.set('MEMORY_USAGE', mem_usage_mb)  # in MB 

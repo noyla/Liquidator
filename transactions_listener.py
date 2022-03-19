@@ -2,8 +2,10 @@ import asyncio
 import os
 import redis
 import traceback
+from sqlalchemy import select
 
 from web3 import Web3
+from models.db.settings import Settings
 from services.liquidation_service import LiquidationService
 from services.users_service import UsersService
 from toolkit import toolkit_
@@ -73,7 +75,7 @@ class TransactionsListener:
                 log.error("Disconnected from node")
                 return
 
-            toolkit_.trace_resoucrce_usage()
+            toolkit_.trace_resource_usage()
             # start_block = 29756569 # Kovan
             # I started scanning backwards from block 1427961
             start_block = block # 14243784
@@ -105,11 +107,9 @@ class TransactionsListener:
 
 def run():
     try:
-        red = redis.Redis(charset="utf-8", decode_responses=True)
-        start_block = red.get('CURR_BLOCK')  # in MB 
+        start_block = toolkit_.redis.get('CURR_BLOCK')  # in MB 
         if not start_block:
-            log.error('Start block not set in redis')
-            return
+            start_block = session.query(Settings).get('LAST_BLOCK').value
 
         curr_block = int(start_block)
         events_len = int(os.environ.get('EVENTS_LENGTH'))
@@ -121,7 +121,7 @@ def run():
             # start_time = time.process_time()
             listener.collect_user_data(events)
             curr_block -= events_len
-            red.set('CURR_BLOCK', curr_block)
+            toolkit_.redis.set('CURR_BLOCK', curr_block)
             # end_time = time.process_time()
             # print(f'Data collection took {end_time - start_time}')
         log.info(f'Done.')
@@ -149,7 +149,11 @@ def main():
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
+    # from models.db.settings import Settings
+    # session.add(Settings('LAST_BLOCK', 14243384))
+    # session.commit()
     run()
+
 
     # value = toolkit_.w3.fromWei(200917325452379653357, 'ether')
     # debtToCover = 3553656655
