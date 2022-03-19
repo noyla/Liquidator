@@ -122,6 +122,9 @@ def run():
             listener.collect_user_data(events)
             curr_block -= events_len
             toolkit_.redis.set('CURR_BLOCK', curr_block)
+            session.query(Settings).filter_by(name='LAST_BLOCK').update({"value": curr_block})
+            session.commit()
+
             # end_time = time.process_time()
             # print(f'Data collection took {end_time - start_time}')
         log.info(f'Done.')
@@ -149,6 +152,7 @@ def main():
     val = 27519318177421073050
     # conv = val.astype(int).item()
     create_tables()
+
     # from models.db.settings import Settings
     # session.add(Settings('LAST_BLOCK', 14243384))
     # session.commit()

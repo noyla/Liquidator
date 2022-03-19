@@ -88,15 +88,15 @@ class UsersService:
                     user_data.id = user_data.user + '_' + user_data.reserve
                     collaterals.append({'userReserveData': user_data})#, 
                                 #'reserve': name})
-                    log.info(f'User Reserve Data for reserve {name}: \
-                            {json.dumps(user_data.to_dict())}')
+                    # log.info(f'User Reserve Data for reserve {name}: \
+                    #         {json.dumps(user_data.to_dict())}')
                 elif user_data.current_stable_debt or user_data.current_variable_debt:
                     user_data.reserve = name
                     user_data.id = user_data.user + '_' + user_data.reserve
                     debts.append({'userReserveData': user_data})#,
                                 # 'reserve': name})
-                    log.info(f'User Reserve Data for reserve {name}: \
-                        {json.dumps(user_data.to_dict())}')
+                    # log.info(f'User Reserve Data for reserve {name}: \
+                    #     {json.dumps(user_data.to_dict())}')
         
         return collaterals, debts
     
@@ -155,7 +155,7 @@ class UsersService:
                     res = await asyncio.gather(*[func for func in tasks])
                     if res:
                         await self.save_user_data_tuple(res)
-                        log.info('Saving users data')
+                        log.info(f'Saved {len(res)} users reserve data')
                         toolkit_.trace_resource_usage()
                         tasks.clear()
                         count = 0
@@ -167,6 +167,7 @@ class UsersService:
                 res = await asyncio.gather(*[func for func in tasks])
                 if res:
                     await self.save_user_data_tuple(res)
+                    log.info(f'Saved {len(res)} users reserve data')
             log.info('Finished processing all events')
             toolkit_.trace_resource_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
