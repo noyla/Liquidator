@@ -110,8 +110,10 @@ def run():
         start_block = toolkit_.redis.get('CURR_BLOCK')  # in MB 
         if not start_block:
             start_block = session.query(Settings).get('LAST_BLOCK').value
+            log.info('Loaded start block from DB')
 
         curr_block = int(start_block)
+        log.info(f'Start block: {start_block}')
         events_len = int(os.environ.get('EVENTS_LENGTH'))
         listener = TransactionsListener()
         for i in range (1, int(os.environ.get('MAX_EVENT_SCAN_ITERATIONS'))):
