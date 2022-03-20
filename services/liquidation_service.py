@@ -146,5 +146,5 @@ class LiquidationService:
         debtToCover = math.floor((user_reserve_data.current_stable_debt + user_reserve_data.current_variable_debt) * \
                         consts.LIQUIDATION_CLOSE_FACTOR)
         # debtToCover2 = math.floor(user_data.currentATokenBalance * consts.LIQUIDATION_CLOSE_FACTOR)
-        # TODO: check wei conversion, should use asset and not ether.
+        # TODO: check wei conversion, should use asset and not ether with decimals field from user data.
         return debtToCover

@@ -1,10 +1,6 @@
 import asyncio
-import json
-from json import tool
 import time
 import traceback
-
-import redis
 import consts
 
 from typing import Tuple
@@ -55,6 +51,13 @@ class UsersService:
             except:
                 log.error(f'Error getting user data \n Error: \
                     {traceback.print_exc()}')
+        else:
+            user = session.query(User).filter_by(id=address).first()
+            if user:
+                toolkit_.redis.hset(user.id, mapping=user.to_dict())
+                log.debug(f'Loaded user {user.id}')
+                return True, user
+
             
         user_data = LendingPool.functions.getUserAccountData(address).call()
         if not user_data:
