@@ -54,8 +54,9 @@ class UsersService:
         else:
             user = session.query(User).filter_by(id=address).first()
             if user:
-                toolkit_.redis.hset(user.id, mapping=user.to_dict())
                 log.debug(f'Loaded user {user.id}')
+                toolkit_.redis.hset(user.id, mapping=user.to_dict())
+                log.debug(f'Saved user {user.id} to redis')
                 return True, user
 
             
