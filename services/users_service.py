@@ -53,10 +53,10 @@ class UsersService:
                     {traceback.print_exc()}')
         else:
             user = session.query(User).filter_by(id=address).first()
+
             if user:
+                self.save_user_to_redis(user)
                 log.debug(f'Loaded user {user.id}')
-                toolkit_.redis.hset(user.id, mapping=user.to_dict())
-                log.debug(f'Saved user {user.id} to redis')
                 return True, user
 
             
@@ -176,7 +176,7 @@ class UsersService:
             toolkit_.trace_resource_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
         except:
-            log.error('Error: {}'.format(traceback.print_exc()))
+            log.error(f'Error during collection:\n {traceback.print_exc()}')
 
     async def save_user_data_tuple(self, res: list[User, UserReserveData]):
         try:
@@ -195,7 +195,7 @@ class UsersService:
                 if count >= 20:
                     self.users_store.create_users_with_reserves(users, 
                                     users_reserves)
-                    self.store_to_redis(users)
+                    self.save_users_to_redis(users)
                     users.clear()
                     users_reserves.clear()
                     count = 0
@@ -205,12 +205,12 @@ class UsersService:
                 if users or users_reserves:
                     self.users_store.create_users_with_reserves(users, 
                                                                 users_reserves)
-                    self.store_to_redis(users)
+                    self.save_users_to_redis(users)
             global end_time
             end_time = time.process_time()
             log.info(f'Data collection took {end_time - start_time}')
         except:
-            log.error('Error: {}'.format(traceback.print_exc()))
+            log.error(f'Error:\n{traceback.print_exc()}')
 
     
     # async def collect_user_data(self, events):
@@ -256,10 +256,15 @@ class UsersService:
             toolkit_.redis.hset(u.id, mapping=u.to_dict())
             # self.redis.hset(u.id, mapping=u.to_dict())
     
-    def store_to_redis(self, users: dict[User]):
+    def save_users_to_redis(self, users: dict[User]):
         # pipe = self.redis.pipeline()
         pipe = toolkit_.redis.pipeline()
         for id, u in users.items():
             pipe.hset(id, mapping=u.to_dict())
         pipe.execute()
+    
+    def save_user_to_redis(self, user: User):
+        user = user.to_dict()
+        user = {k:v if v is not None else '' for k,v in user.items()}
+        toolkit_.redis.hset(user.id, mapping=user)
 
