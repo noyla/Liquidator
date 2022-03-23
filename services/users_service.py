@@ -266,5 +266,5 @@ class UsersService:
     def save_user_to_redis(self, user: User):
         user = user.to_dict()
         user = {k:v if v is not None else '' for k,v in user.items()}
-        toolkit_.redis.hset(user.id, mapping=user)
+        toolkit_.redis.hset(user['id'], mapping=user)
 
