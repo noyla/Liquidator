@@ -42,8 +42,8 @@ class UsersService:
         # exists = self.redis.exists(address)
         exists = toolkit_.redis.exists(address)
         if exists:
-            # Temporary redis bug partial user data, if exception occurs,
-            # Move on and retrieve data from the API.
+            # Temporary redis bug - partial user data (no total_collateral_eth).
+            # If exception occurs, move on and retrieve data from the API.
             try:
                 # user = User.from_dict(self.redis.hgetall(address))
                 user = User.from_dict(toolkit_.redis.hgetall(address))
@@ -243,8 +243,13 @@ class UsersService:
         if exists or not user_data:
             return {}, []
         user_data.id = user
-        collaterals, debts = svc.get_collaterals_and_debts(user)
 
+        if user_data.health_factor == consts.INACTIVE_USER_HEALTH:
+            log.info(f'User {user_data.id} is inactive, skipping reserve collection')
+            return user_data, []
+
+        # Retrieve reserve data for the user
+        collaterals, debts = svc.get_collaterals_and_debts(user)
         if collaterals or debts:
             return user_data, [c['userReserveData'] for c in collaterals + debts]
             # self.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])

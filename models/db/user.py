@@ -35,7 +35,7 @@ class User(Base):
         for column in self.__table__.columns:
             field = getattr(self, column.name)
             if field is None:
-                d[column.name] = field
+                d[column.name] = ''
             elif str(field) in ['True', 'False', 'true', 'false']:
                 d[column.name] = bool(field)
             else:

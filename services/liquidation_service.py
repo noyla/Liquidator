@@ -40,7 +40,7 @@ class LiquidationService:
             Tuple[UserData, Web3.eth.Eth.contract]: Returns user data and the reserve contract
         """
         collaterals, debts = self.users_service.get_collaterals_and_debts(borrower)
-        self.users_service.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
+        # self.users_service.save_user_reserve_data([c['userReserveData'] for c in collaterals + debts])
         if not (collaterals and debts):
             log(f"Found {len(collateral)} collaterals and {len(debts)} borrowd assets.\n"
                   f"cannot liquidate user {borrower}")
@@ -71,7 +71,7 @@ class LiquidationService:
             decimals = reserve_configurations.decimals
 
             collateral['liquidated_collateral_amount'] = (chosen_debt['debtPrice'] * debtToCover * collateral['bonus']) / \
-                collateral_price * decimals
+                collateral_price #* decimals
             
             log.info(f"Max liquidated collateral for reserve {reserve}: {collateral['liquidated_collateral_amount']}")
         
@@ -148,3 +148,10 @@ class LiquidationService:
         # debtToCover2 = math.floor(user_data.currentATokenBalance * consts.LIQUIDATION_CLOSE_FACTOR)
         # TODO: check wei conversion, should use asset and not ether with decimals field from user data.
         return debtToCover
+
+if __name__ == '__main__':
+    svc = LiquidationService()
+    collateral_contract, liquidated_collateral_amount, \
+    debt_contract, debtToCover, gasEstimation = \
+    svc.check_liquidation_profitability('0xD857cb4be5d5a65e3be1d272a171D41736891Db8_DAI')
+    print(liquidated_collateral_amount)
