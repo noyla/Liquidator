@@ -5,14 +5,15 @@ import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILending
 import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPool.sol";
 
 import "./Liquidator.sol";
+import "./Events.sol";
 
 contract FlashLiquidator is FlashLoanReceiverBase {
     ILendingPoolAddressesProvider public addressProvider;
     ILiquidator public liquidatorContract;
 
-    constructor(address _addressProvider, address _liquidator) FlashLoanReceiverBase(_addressProvider) public {
+    constructor(address _addressProvider, address _liquidatorAddress) FlashLoanReceiverBase(_addressProvider) public {
         addressProvider = ILendingPoolAddressesProvider(_addressProvider);
-        liquidatorContract = _liquidator;
+        liquidatorContract = ILiquidator(_liquidatorAddress);
     }
 
     /**
@@ -31,26 +32,46 @@ contract FlashLiquidator is FlashLoanReceiverBase {
     {
         //
         // This contract now has the funds requested.
-        // Verify funds received
-        require(_amount <= getBalanceInternal(address(this), _reserve), "Invalid balance, was the flashLoan successful?");
+        // Decode liquidation params.
+        // 
+        (address memory collateralAsset, uint256 bonus, address memory user, bool memory receiveaToken) = 
+        abi.decode(params, (address, uint256, address, bool));
 
+        emit FlashLoanGranted(_assets[0], _amounts[0], user);
+        
+        // Verify the funds were received
+        require(amounts[0] <= getBalanceInternal(address(this), _reserve), "Invalid balance, was the FlashLoan successful?");
+        
         // Get LendingPool instance
-        lendingPool = ILendingPool(addressProvider.getLendingPool());
+        // ILendingPool lendingPool = ILendingPool(addressProvider.getLendingPool());
         // Liquidator theLiquidator = Liquidator(lendingPool);
         // theLiquidator.flashLiquidate(address(lendingPool));
-        liquidatorContract.flashLiquidate(address(lendingPool));
+        uint256 amountToLiquidate = amounts[0] * bonus;
+        address lendingPoolAddress = addressProvider.getLendingPool();
+        bool success = liquidatorContract.flashLiquidate(lendingPoolAddress, collateralAsset, assets[0] /* The debt asset to cover */, 
+        user, amountToLiquidate, receiveaToken);
     
         // At the end of your logic above, this contract owes
         // the flashloaned amounts + premiums.
         // Therefore ensure your contract has enough to repay
         // these amounts.
+        if (!success) {
+            emit LiquidationFailed(_assets[0], collateralAsset, amountToLiquidate, user);
+            return false;
+        }
+        
+        emit LiquidationSuccess(_assets[0], collateralAsset, amountToLiquidate, user);
 
         // Approve the LendingPool contract allowance to *pull* the owed amount
         // i.e. AAVE V2's way of repaying the flash loan
+        uint amountOwed = 0;
         for (uint i = 0; i < assets.length; i++) {
-            uint amountOwing = amounts[i].add(premiums[i]);
-            IERC20(assets[i]).approve(address(LENDING_POOL), amountOwing);
+            amountOwed = amounts[i].add(premiums[i]);
+            IERC20(assets[i]).approve(lendingPoolAddress, amountOwed);
+            // IERC20(assets[i]).approve(address(LENDING_POOL), amountOwed);
         }
+
+        emit FlashLoanRedeemed(assets[0], amountOwed, user);
 
         return true;
     }
@@ -58,16 +79,23 @@ contract FlashLiquidator is FlashLoanReceiverBase {
     /**
         Flash loan 1000000000000000000 wei (1 ether) worth of `_asset`
      */
-    function flashLoanCall(address _asset) public onlyOwner {
-        bytes memory data = "";
-        uint amount = 1 ether;
-        uint256 mode = 0;
-        address onBehalfOf = address(this);
-        bytes memory params = "";
-        uint16 referralCode = 0;
+    function flashLoanCall(address _collateralAsset, address _debtAsset, uint256 _amount, uint256 _bonus, address _user, 
+    bool _receiveaToken) public onlyOwner {
+        
+        emit FlashLiquidationCall(_debtAsset, _amount, _collateralAsset, 
+                        _bonus, _user, _receiveaToken);
 
+        address[] memory assets = [_debtAsset];
+        uint256[] memory amounts = [_amount];
+        // uint256[] amounts = 1 ether;
+        uint256[] modes = [0]; // No Debt - return loan at the end of the transaction.
+        address onBehalfOf = address(this);
+        uint16 referralCode = 0;
+        bytes memory params = abi.encode(_collateralAsset, _bonus, _user, _receiveaToken);
+        
+        // Proceed to FlashLoan
         ILendingPool lendingPool = ILendingPool(addressProvider.getLendingPool());
-        lendingPool.flashLoan(address(this), _asset, amount, mode, onBehalfOf, params, referralCode);
+        lendingPool.flashLoan(address(this), assets, amounts, modes, onBehalfOf, params, referralCode);
     }
 
     /*

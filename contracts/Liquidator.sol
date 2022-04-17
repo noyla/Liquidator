@@ -20,7 +20,7 @@ contract Liquidator {
     function flashLiquidate(
         address memory _lendingPoolAddress,
         address memory _collateral, 
-        address memory _reserve,
+        address memory _debtReserve,
         address memory _user,
         uint256 memory _purchaseAmount,
         bool memory _receiveaToken
@@ -28,12 +28,12 @@ contract Liquidator {
         external
         returns (bool)
     {        
-        // Verify this contract already has `_purchaseAmount` of `_reserve`.
-        require(IERC20(_reserve).approve(_lendingPoolAddress, _purchaseAmount), "Approval error");
+        // Approve the lending pool to spend `_purchaseAmount` of `_debtReserve` so the debt is covered.
+        require(IERC20(_debtReserve).approve(_lendingPoolAddress, _purchaseAmount), "Approval error");
         
         // Liquidate
         lendingPool = ILendingPool(_lendingPoolAddress);
-        lendingPool.liquidationCall(_collateral, _reserve, _user, -1 /*_purchaseAmount*/, 
+        lendingPool.liquidationCall(_collateral, _debtReserve, _user, -1 /*_purchaseAmount*/, 
                                     _receiveaToken);
         
         return true;
@@ -42,7 +42,7 @@ contract Liquidator {
     function liquidate(
         address memory _lendingPoolAddressProvider,
         address memory _collateral, 
-        address memory _reserve,
+        address memory _debtReserve,
         address memory _user,
         uint256 memory _purchaseAmount,
         bool memory _receiveaToken
@@ -55,10 +55,10 @@ contract Liquidator {
         ILendingPool lendingPool = ILendingPool(addressProvider.getLendingPool());
         
         // Approve the liquidated amount
-        require(IERC20(_reserve).approve(address(lendingPool), _purchaseAmount), "Approval error");
+        require(IERC20(_debtReserve).approve(address(lendingPool), _purchaseAmount), "Approval error");
 
         // Assumes this contract already has `_purchaseAmount` of `_reserve`.
-        lendingPool.liquidationCall(_collateral, _reserve, _user, -1 /*_purchaseAmount*/, 
+        lendingPool.liquidationCall(_collateral, _debtReserve, _user, -1 /*_purchaseAmount*/, 
                                     _receiveaToken);
         
         return true;
