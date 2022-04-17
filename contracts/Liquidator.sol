@@ -1,22 +1,24 @@
 pragma solidity ^0.6.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./ILendingPoolAddressesProvider.sol";
-import "./ILendingPool.sol";
+import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPoolAddressesProvider.sol";
+import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPool.sol";
 
+interface ILiquidator {
+    function flashLiquidate() external returns (bool);
+}
 
 contract Liquidator {
-    address public lendingPoolAddressProvider;
+    // address public lendingPoolAddressProvider;
     // ILendingPool public lendingPool;
     
     // constructor(address _lendingPoolAddressProvider) public {
-    constructor(ILendingPool _lendingPool) public {
-        lendingPoolAddressProvider = _lendingPoolAddressProvider;
-        // lendingPool = _lendingPool
+    // constructor(ILendingPool _lendingPool) public {
+    constructor() public {
     }
 
     function flashLiquidate(
-        ILendingPool _lendingPool,
+        address memory _lendingPoolAddress,
         address memory _collateral, 
         address memory _reserve,
         address memory _user,
@@ -26,9 +28,11 @@ contract Liquidator {
         external
         returns (bool)
     {        
-        require(IERC20(_reserve).approve(address(_lendingPool), _purchaseAmount), "Approval error");
-
-        // Assumes this contract already has `_purchaseAmount` of `_reserve`.
+        // Verify this contract already has `_purchaseAmount` of `_reserve`.
+        require(IERC20(_reserve).approve(_lendingPoolAddress, _purchaseAmount), "Approval error");
+        
+        // Liquidate
+        lendingPool = ILendingPool(_lendingPoolAddress);
         lendingPool.liquidationCall(_collateral, _reserve, _user, -1 /*_purchaseAmount*/, 
                                     _receiveaToken);
         
@@ -44,6 +48,7 @@ contract Liquidator {
         bool memory _receiveaToken
     )
         external
+        returns (bool)
     {
         // Get lending pool
         ILendingPoolAddressesProvider addressProvider = ILendingPoolAddressesProvider(_lendingPoolAddressProvider);
