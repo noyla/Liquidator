@@ -32,7 +32,7 @@ contract Liquidator {
         require(IERC20(_debtReserve).approve(_lendingPoolAddress, _purchaseAmount), "Approval error");
         
         // Liquidate
-        lendingPool = ILendingPool(_lendingPoolAddress);
+        ILendingPool lendingPool = ILendingPool(_lendingPoolAddress);
         lendingPool.liquidationCall(_collateral, _debtReserve, _user, -1 /*_purchaseAmount*/, 
                                     _receiveaToken);
         

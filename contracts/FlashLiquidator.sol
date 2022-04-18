@@ -36,31 +36,34 @@ contract FlashLiquidator is FlashLoanReceiverBase {
         // 
         (address memory collateralAsset, uint256 bonus, address memory user, bool memory receiveaToken) = 
         abi.decode(params, (address, uint256, address, bool));
-
-        emit FlashLoanGranted(_assets[0], _amounts[0], user);
+        debtAsset = assets[0]
+        uint256 amountToLiquidate = amounts[0]
+        emit FlashLoanGranted(debtAsset, amountToLiquidate, user);
         
         // Verify the funds were received
-        require(amounts[0] <= getBalanceInternal(address(this), _reserve), "Invalid balance, was the FlashLoan successful?");
+        
+        require(amountToLiquidate <= getBalanceInternal(address(this), debtAsset), 
+                "Invalid balance, was the FlashLoan successful?");
         
         // Get LendingPool instance
         // ILendingPool lendingPool = ILendingPool(addressProvider.getLendingPool());
         // Liquidator theLiquidator = Liquidator(lendingPool);
         // theLiquidator.flashLiquidate(address(lendingPool));
-        uint256 amountToLiquidate = amounts[0] * bonus;
+        amountToLiquidate = amountToLiquidate * bonus;
         address lendingPoolAddress = addressProvider.getLendingPool();
-        bool success = liquidatorContract.flashLiquidate(lendingPoolAddress, collateralAsset, assets[0] /* The debt asset to cover */, 
-        user, amountToLiquidate, receiveaToken);
+        bool success = liquidatorContract.flashLiquidate(lendingPoolAddress, collateralAsset, debtAsset, user, 
+                                                        amountToLiquidate, receiveaToken);
     
         // At the end of your logic above, this contract owes
         // the flashloaned amounts + premiums.
         // Therefore ensure your contract has enough to repay
         // these amounts.
         if (!success) {
-            emit LiquidationFailed(_assets[0], collateralAsset, amountToLiquidate, user);
+            emit LiquidationFailed(debtAsset, collateralAsset, amountToLiquidate, user);
             return false;
         }
         
-        emit LiquidationSuccess(_assets[0], collateralAsset, amountToLiquidate, user);
+        emit LiquidationSuccess(debtAsset, collateralAsset, amountToLiquidate, user);
 
         // Approve the LendingPool contract allowance to *pull* the owed amount
         // i.e. AAVE V2's way of repaying the flash loan
@@ -71,7 +74,7 @@ contract FlashLiquidator is FlashLoanReceiverBase {
             // IERC20(assets[i]).approve(address(LENDING_POOL), amountOwed);
         }
 
-        emit FlashLoanRedeemed(assets[0], amountOwed, user);
+        emit FlashLoanRedeemed(debtAsset, amountOwed, user);
 
         return true;
     }
