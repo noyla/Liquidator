@@ -1,11 +1,17 @@
-pragma solidity ^0.6.6;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPoolAddressesProvider.sol";
-import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPool.sol";
+import { IERC20, ILendingPoolAddressesProvider, ILendingPool } from "./Interfaces.sol";
+// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import "./Interfaces.sol";
+
+// import "./ILendingPoolAddressesProvider.sol";
+// import "./ILendingPool.sol";
+// import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPoolAddressesProvider.sol";
+// import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/ILendingPool.sol";
 
 interface ILiquidator {
-    function flashLiquidate() external returns (bool);
+    function flashLiquidate(address _lendingPoolAddress, address _collateral, address _debtReserve,
+        address _user, uint256 _purchaseAmount, bool _receiveaToken) external returns (bool);
 }
 
 contract Liquidator {
@@ -14,16 +20,16 @@ contract Liquidator {
     
     // constructor(address _lendingPoolAddressProvider) public {
     // constructor(ILendingPool _lendingPool) public {
-    constructor() public {
-    }
+    // constructor() public {
+    // }
 
     function flashLiquidate(
-        address memory _lendingPoolAddress,
-        address memory _collateral, 
-        address memory _debtReserve,
-        address memory _user,
-        uint256 memory _purchaseAmount,
-        bool memory _receiveaToken
+        address _lendingPoolAddress,
+        address _collateral, 
+        address _debtReserve,
+        address _user,
+        uint256 _purchaseAmount,
+        bool _receiveaToken
     )
         external
         returns (bool)
@@ -33,19 +39,20 @@ contract Liquidator {
         
         // Liquidate
         ILendingPool lendingPool = ILendingPool(_lendingPoolAddress);
-        lendingPool.liquidationCall(_collateral, _debtReserve, _user, -1 /*_purchaseAmount*/, 
+        // _purchaseAmount = uint(-1);
+        lendingPool.liquidationCall(_collateral, _debtReserve, _user, type(uint256).max, 
                                     _receiveaToken);
         
         return true;
     }
 
     function liquidate(
-        address memory _lendingPoolAddressProvider,
-        address memory _collateral, 
-        address memory _debtReserve,
-        address memory _user,
-        uint256 memory _purchaseAmount,
-        bool memory _receiveaToken
+        address _lendingPoolAddressProvider,
+        address _collateral, 
+        address _debtReserve,
+        address _user,
+        uint256 _purchaseAmount,
+        bool _receiveaToken
     )
         external
         returns (bool)
@@ -58,7 +65,7 @@ contract Liquidator {
         require(IERC20(_debtReserve).approve(address(lendingPool), _purchaseAmount), "Approval error");
 
         // Assumes this contract already has `_purchaseAmount` of `_reserve`.
-        lendingPool.liquidationCall(_collateral, _debtReserve, _user, -1 /*_purchaseAmount*/, 
+        lendingPool.liquidationCall(_collateral, _debtReserve, _user, type(uint256).max /*_purchaseAmount*/, 
                                     _receiveaToken);
         
         return true;

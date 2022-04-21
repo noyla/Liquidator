@@ -1,4 +1,4 @@
-pragma solidity ^0.6.6;
+pragma solidity ^0.6.12;
 
 // KOVAN TESTNET
 address public constant KOVAN_AAVE = 0xB597cd8D3217ea6477232F9217fa70837ff667Af;
