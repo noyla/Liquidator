@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
 // import "https://github.com/aave/flashloan-box/blob/Remix/contracts/aave/FlashLoanReceiverBase.sol";
@@ -20,14 +21,17 @@ contract FlashLiquidator is FlashLoanReceiverBase, Ownable {
     event LiquidationSuccess(address asset, address collateralAsset, uint256 amountToLiquidate, address user);
     event LiquidationFailed(address debtAsset, address collateralAsset, uint256 amountToLiquidate, address user);
     event FlashLoanRedeemed(address asset, uint amountOwed, address user);
-    event FlashLoanError();
+    event FlashLoanError(string reason);
+    event UnhandledError(bytes lowLevelData);
+    event RugPullSucceed();
+    event RugPullFailed();
 
     ILendingPoolAddressesProvider public addressProvider;
-    ILiquidator public liquidatorContract;
+    // ILiquidator public liquidatorContract;
 
-    constructor(address _addressProvider, address _liquidatorAddress) FlashLoanReceiverBase(_addressProvider) public {
+    constructor(address _addressProvider/*, address _liquidatorAddress*/) FlashLoanReceiverBase(_addressProvider) {
         addressProvider = ILendingPoolAddressesProvider(_addressProvider);
-        liquidatorContract = ILiquidator(_liquidatorAddress);
+        // liquidatorContract = ILiquidator(_liquidatorAddress);
     }
 
     /**
@@ -66,17 +70,32 @@ contract FlashLiquidator is FlashLoanReceiverBase, Ownable {
         // theLiquidator.flashLiquidate(address(lendingPool));
         uint256 totalToLiquidate = amountToLiquidate * bonus;
         address lendingPoolAddress = addressProvider.getLendingPool();
-        bool success = liquidatorContract.flashLiquidate(lendingPoolAddress, collateralAsset, debtAsset, user, 
-                                                        totalToLiquidate, receiveaToken);
+        try this.flashLiquidate(lendingPoolAddress, collateralAsset, debtAsset, user, 
+        totalToLiquidate, receiveaToken) returns (bool success){
+            if (!success) {
+                emit LiquidationFailed(debtAsset, collateralAsset, totalToLiquidate, user);
+                return false;
+            }
+            // return success;
+        } catch Error(string memory reason) {
+            emit FlashLoanError(reason);
+            return false;
+        }
+        catch (bytes memory lowLevelData) {  
+            emit UnhandledError(lowLevelData);
+            return false;
+        }
+        // bool success = liquidatorContract.flashLiquidate(lendingPoolAddress, collateralAsset, debtAsset, user, 
+        //                                                 totalToLiquidate, receiveaToken);
     
         // At the end of your logic above, this contract owes
         // the flashloaned amounts + premiums.
         // Therefore ensure your contract has enough to repay
         // these amounts.
-        if (!success) {
-            emit LiquidationFailed(debtAsset, collateralAsset, totalToLiquidate, user);
-            return false;
-        }
+        // if (!success) {
+        //     emit LiquidationFailed(debtAsset, collateralAsset, totalToLiquidate, user);
+        //     return false;
+        // }
         
         emit LiquidationSuccess(debtAsset, collateralAsset, totalToLiquidate, user);
 
@@ -92,6 +111,29 @@ contract FlashLiquidator is FlashLoanReceiverBase, Ownable {
         // }
         emit FlashLoanRedeemed(debtAsset, amountOwed, user);
 
+        return true;
+    }
+
+    function flashLiquidate(
+        address _lendingPoolAddress,
+        address _collateral, 
+        address _debtReserve,
+        address _user,
+        uint256 _purchaseAmount,
+        bool _receiveaToken
+    )
+        external
+        returns (bool)
+    {        
+        // Approve the lending pool to spend `_purchaseAmount` of `_debtReserve` so the debt is covered.
+        require(IERC20(_debtReserve).approve(_lendingPoolAddress, _purchaseAmount), "Approval error");
+        
+        // Liquidate
+        ILendingPool lendingPool = ILendingPool(_lendingPoolAddress);
+        // _purchaseAmount = uint(-1);
+        lendingPool.liquidationCall(_collateral, _debtReserve, _user, type(uint256).max, 
+                                    _receiveaToken);
+        
         return true;
     }
 
@@ -144,16 +186,30 @@ contract FlashLiquidator is FlashLoanReceiverBase, Ownable {
     /*
     * Rugpull all ERC20 tokens from the contract
     */
-    function rugPull() public payable onlyOwner {
+    function rugPull(address _tokenContract) public payable onlyOwner {
         
         // withdraw all ETH
-        msg.sender.call{ value: address(this).balance }("");
+        (bool sent,) = msg.sender.call{ value: address(this).balance}("");
+        if (!sent) {
+            emit RugPullFailed();
+        }
         address KOVAN_AAVE = 0xB597cd8D3217ea6477232F9217fa70837ff667Af;
         address  KOVAN_DAI = 0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD;
         address  KOVAN_LINK = 0xAD5ce863aE3E4E9394Ab43d4ba0D80f419F61789;
+        
         // withdraw all x ERC20 tokens
-        IERC20(KOVAN_AAVE).transfer(msg.sender, IERC20(KOVAN_AAVE).balanceOf(address(this)));
-        IERC20(KOVAN_DAI).transfer(msg.sender, IERC20(KOVAN_DAI).balanceOf(address(this)));
+        require(IERC20(KOVAN_AAVE).transfer(msg.sender, IERC20(KOVAN_AAVE).balanceOf(address(this))), 
+                "Witdhraw of AAVE failed");
+        require(IERC20(KOVAN_DAI).transfer(msg.sender, IERC20(KOVAN_DAI).balanceOf(address(this))), 
+                "Withdraw of DAI failed");
+        
+        // Withdraw from the input token address
+        IERC20 tokenContract = IERC20(_tokenContract);
+        require(tokenContract.transfer(msg.sender, tokenContract.balanceOf(address(this))), 
+                "Withdraw failed");
+        
+        emit RugPullSucceed();
+        
         // IERC20(kovanLink).transfer(msg.sender, IERC20(kovanLink).balanceOf(address(this)));
     }
 
