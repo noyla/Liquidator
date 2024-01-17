@@ -2,10 +2,12 @@ import asyncio
 import time
 import traceback
 import consts
+import csv
 
 from typing import Tuple
 from db.engine import session
 from models.db.user import User
+from models.db.user_bck import UserBck
 from models.db.user_reserve_data import UserReserveData
 from pools import LendingPool
 from services.assets_service import AssetsService
@@ -14,9 +16,11 @@ from stores.users_store import UsersStore
 from toolkit import toolkit_
 from sqlalchemy import inspect, func
 from logger import log
+import json
 
 start_time = None
 end_time = None
+HEALTH_FACTOR_THRESHOLD = toolkit_.w3.toWei(1, 'ether')
 
 class UsersService:
     def __init__(self) -> None:
@@ -38,7 +42,7 @@ class UsersService:
             self._users_store = UsersStore()
         return self._users_store
 
-    def get_user_data(self, address: str) -> Tuple[bool, User]:
+    def get_user_data(self, address: str, refresh: bool = False) -> Tuple[bool, User]:
         # exists = self.redis.exists(address)
         exists = toolkit_.redis.exists(address)
         if exists:
@@ -47,7 +51,8 @@ class UsersService:
             try:
                 # user = User.from_dict(self.redis.hgetall(address))
                 user = User.from_dict(toolkit_.redis.hgetall(address))
-                return True, user
+                if not refresh:
+                    return True, user
             except:
                 log.error(f'Error getting user data \n Error: \
                     {traceback.print_exc()}')
@@ -57,7 +62,8 @@ class UsersService:
             if user:
                 self.save_user_to_redis(user)
                 log.debug(f'Loaded user {user.id}')
-                return True, user
+                if not refresh:
+                    return True, user
 
             
         user_data = LendingPool.functions.getUserAccountData(address).call()
@@ -65,7 +71,7 @@ class UsersService:
             return None
         user_data = {'id': address, 'total_collateral_eth': user_data[0], 'total_debt_eth': user_data[1], 'available_borrows_eth': user_data[2],
                     'current_liquidation_threshold': user_data[3], 'ltv': user_data[4], 'health_factor': user_data[5]}
-        log.debug(f'User data: {user_data}')
+        # log.debug(f'User data: {user_data}')
         return False, User.from_dict(user_data)
     
     def get_balance(self, asset_contract: str) -> int:
@@ -126,6 +132,12 @@ class UsersService:
         # session.commit()
         # session.saveorupdate(user_reserve_data)
 
+    def save_backup_user(self):
+        # user = session.query(User).one()
+        user_data = UserBck(id='test')
+        session.add(user_data)
+        session.commit()
+
     def save_user(self, user_data: User):
         # session.add(user_data)
         # exists = session.query(exists().where(User.id == user_data.id)).scalar()
@@ -138,6 +150,33 @@ class UsersService:
             log.info(f'Saved user {user_data.id}\n')
             # with open(consts.USER_LOGS, 'a') as f:
             #     f.write(f'Saved user {user_data.id}\n')
+    
+    def refresh_users(self):
+        log.debug('Loading users')
+        f = json.dumps({"a": 1, "e": 2})
+        log.debug(f)
+        the_offset_val = 0
+        users = session.query(User).filter(User.total_collateral_eth != 
+        '1157920892373161954235709850086879078532').order_by(User.health_factor.asc()).limit(1000).offset(the_offset_val)
+
+        log.debug('Refreshing users data')
+        liquidation_candidates = {}
+        for u in users:
+            exists, user_data = self.get_user_data(u.id, refresh=True)
+            if user_data.health_factor == 1157920892373161954235709850086879078532:
+                continue
+            # log.debug('User %s; health: %s' % (user_data.id, user_data.health_factor))
+            # log.debug('Type hf: %s, type const: %s' % (type(int(user_data.health_factor)), 
+            #                         type(HEALTH_FACTOR_THRESHOLD)))
+            if int(user_data.health_factor) < HEALTH_FACTOR_THRESHOLD:
+                log.debug('User %s can be liquidated! Health: %s' % 
+                    (user_data.id, user_data.health_factor))
+                liquidation_candidates[user_data.id] = user_data.health_factor
+        
+        json_object = json.dumps(liquidation_candidates, indent=4)
+        # Writing to liquidation_candidates2.json
+        with open("liquidation_candidates2.json", "w") as outfile:
+            outfile.write(json_object)
 
 
     async def collect_user_data(self, events):
@@ -272,4 +311,39 @@ class UsersService:
         user = user.to_dict()
         user = {k:v if v is not None else '' for k,v in user.items()}
         toolkit_.redis.hset(user['id'], mapping=user)
+    
+    def backup_all_users(self):
+        users = session.query(User).all()
+        users = [u.to_dict() for u in users]
+        fieldnames = ['id', 'total_collateral_eth', 
+                    'total_debt_eth', 'available_borrows_eth', 
+                    'current_liquidation_threshold', 'ltv', 'health_factor']
+        outfile = open('liquidator_users_reserve_data.csv', 'w')
+        outcsv = csv.DictWriter(outfile, fieldnames)
+        outcsv.writeheader()
+        outcsv.writerows(users)
+        # for user in users:
+        #     outcsv.writerow(users)
+        
+        outfile.close()
+        return users
+    
+    def backup_all_user_reserves(self):
+        users = session.query(UserReserveData).all()
+        users = [u.to_dict() for u in users]
+        fieldnames = ['id', 'user', 
+                    'reserve', 'current_aToken_balance', 
+                    'current_stable_debt', 'current_variable_debt',
+                    'principal_stable_debt', 'scaled_variable_debt', 
+                    'stable_borrow_rate', 'liquidity_rate', 
+                    'stable_rate_last_updated', 'usage_as_collateral_enabled']
+        outfile = open('liquidator_users_reserve_data.csv', 'w')
+        outcsv = csv.DictWriter(outfile, fieldnames)
+        outcsv.writeheader()
+        outcsv.writerows(users)
+        # for user in users:
+        #     outcsv.writerow(users)
+        
+        outfile.close()
+        return users
 

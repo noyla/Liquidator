@@ -16,6 +16,11 @@ interface ILiquidator {
 }
 
 contract Liquidator {
+    event LiquidationSuccessful(address asset, address collateralAsset, uint256 amountToLiquidate, address user);
+    event LiquidationError(string reason);
+    event UnhandledError(bytes lowLevelData);
+    // event LiquidationFailure(address asset, address collateralAsset, uint256 amountToLiquidate, address user);
+
     // address public lendingPoolAddressProvider;
     // ILendingPool public lendingPool;
     
@@ -66,9 +71,19 @@ contract Liquidator {
         require(IERC20(_debtReserve).approve(address(lendingPool), _purchaseAmount), "Approval error");
 
         // Assumes this contract already has `_purchaseAmount` of `_reserve`.
-        lendingPool.liquidationCall(_collateral, _debtReserve, _user, type(uint256).max /*_purchaseAmount*/, 
-                                    _receiveaToken);
-        
+        try lendingPool.liquidationCall(_collateral, _debtReserve, _user, type(uint256).max /*_purchaseAmount*/, 
+                                    _receiveaToken) {                    
+        }
+        catch Error(string memory reason) {
+            emit LiquidationError(reason);
+            return false;
+        }
+        catch (bytes memory lowLevelData) {  
+            emit UnhandledError(lowLevelData);
+            return false;
+        }
+
+        emit LiquidationSuccessful(_debtReserve, _collateral, _purchaseAmount, _user);
         return true;
     }
 }

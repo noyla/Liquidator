@@ -46,7 +46,8 @@ class LiquidationService:
                   f"cannot liquidate user {borrower}")
             return
         
-        # Find the most profitable collateral
+        # # Find the most profitable collateral
+        # self.get_best_debt_and_collateral(collaterals, debts)
         # Calculate profitability of liquidation. Check currentATokenBalance
         curr_debt = (0,None)
         for d in debts:
@@ -106,7 +107,42 @@ class LiquidationService:
             raise Exception(f"Liquidation non profitable for {borrower}.")
         return collateral_contract, chosen_collateral['liquidated_collateral_amount'], \
                debt_contract, debtToCover, chosen_debt['gasEstimation']
-                        
+     
+    def get_best_debt_and_collateral(self, collaterals: list, debts: list):
+        # Find the most profitable collateral
+        # Calculate profitability of liquidation. Check currentATokenBalance
+        curr_debt = (0,None)
+        for d in debts:
+            debtToCover = self.calculate_debt_to_cover(d.get('userReserveData'))
+            d['debtToCover'] = debtToCover
+            if debtToCover > curr_debt[0]:
+                curr_debt = (debtToCover, d)
+        chosen_debt = curr_debt[1]
+        debt_contract = self.assets_service.get_asset(
+            chosen_debt['userReserveData'].reserve)
+        debtToCover = chosen_debt['debtToCover']
+        chosen_debt['debtPrice'] = self.assets_service.get_asset_price(
+            chosen_debt['userReserveData'].reserve)
+        
+        res_debt = {'max_borrowedSymbol': chosen_debt['userReserveData'].reserve, 
+                    'max_borrowedPrincipal': debtToCover, 
+                    'max_borrowedPriceInEth': chosen_debt['debtPrice']}
+        # chosen_debt['gasEstimation'] = chosen_debt['debtPrice'] * gas_estimation
+            # (approval_gasEstimation + liquidation_gasEstimation)
+        chosen_collateral = {}
+        max_collateral_bonus = 0
+        max_collateral_price_eth = 0
+        for collateral in collaterals:
+            reserve = collateral.get('userReserveData').reserve
+            reserve_configurations = self.assets_service.get_reserve_configuraion_data(reserve)
+            collateral['max_collateralBonus'] = reserve_configurations.liquidation_bonus
+            if (collateral['max_collateralBonus'] > max_collateral_bonus):
+                chosen_collateral['max_collateralSymbol'] = reserve
+                chosen_collateral['max_collateralBonus'] = collateral['max_collateralBonus']
+                chosen_collateral['max_collateralPriceInEth'] = self.assets_service.get_asset_price(reserve)
+            # decimals = reserve_configurations.decimals
+        
+        return chosen_collateral, res_debt
 
     def liquidate(self, borrower: str) -> str:
         collateral_contract, liquidated_collateral_amount, debt_contract, \
@@ -143,15 +179,44 @@ class LiquidationService:
                                                           gas['liquidation'])
 
     def calculate_debt_to_cover(self, user_reserve_data: UserReserveData):
-        debtToCover = math.floor((user_reserve_data.current_stable_debt + user_reserve_data.current_variable_debt) * \
-                        consts.LIQUIDATION_CLOSE_FACTOR)
+        debtToCover = math.floor(user_reserve_data.current_stable_debt + 
+                        user_reserve_data.current_variable_debt + 
+                        user_reserve_data.scaled_variable_debt)
+        # debtToCover = math.floor((user_reserve_data.current_stable_debt + user_reserve_data.current_variable_debt) * \
+        #                 consts.LIQUIDATION_CLOSE_FACTOR)
         # debtToCover2 = math.floor(user_data.currentATokenBalance * consts.LIQUIDATION_CLOSE_FACTOR)
+        
         # TODO: check wei conversion, should use asset and not ether with decimals field from user data.
         return debtToCover
+    
+    def build_loan_from_user(self, user: str):
+        # user_data = self.get_user_reserve_data(name, user)
+        log.info("Getting user data")
+        exists, user_data = self.users_service.get_user_data(user)
+        log.info("Getting collaterals and debts")
+        collaterals, debts = self.users_service.get_collaterals_and_debts(user)
+        log.info("Getting best debt/collateral")
+        collateral, debt = self.get_best_debt_and_collateral(collaterals, debts)
+        log.info(f"Collateral: {collateral}. Debt: {debt}")
+
+        loan = {
+          "user_id"  :  user_data.id,
+          "healthFactor"   :  user_data.health_factor,
+          "max_collateralSymbol" : collateral["max_collateralSymbol"],
+          "max_borrowedSymbol" : debt["max_borrowedSymbol"],
+          "max_borrowedPrincipal" : debt["max_borrowedPrincipal"],
+          "max_borrowedPriceInEth" : debt["max_borrowedPriceInEth"],
+          "max_collateralBonus" : collateral["max_collateralBonus"]/10000,
+          "max_collateralPriceInEth" : collateral["max_collateralPriceInEth"]
+        }
+        log.info(f"Loan: {loan}")
+        return loan
 
 if __name__ == '__main__':
     svc = LiquidationService()
-    collateral_contract, liquidated_collateral_amount, \
-    debt_contract, debtToCover, gasEstimation = \
-    svc.check_liquidation_profitability('0xD857cb4be5d5a65e3be1d272a171D41736891Db8_DAI')
-    print(liquidated_collateral_amount)
+    loan = svc.build_loan_from_user("0x618730eCCB375416aB5129D9eDCc205e3169F979")
+    print(loan)
+    # collateral_contract, liquidated_collateral_amount, \
+    # debt_contract, debtToCover, gasEstimation = \
+    # svc.check_liquidation_profitability('0xD857cb4be5d5a65e3be1d272a171D41736891Db8_DAI')
+    # print(liquidated_collateral_amount)
