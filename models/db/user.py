@@ -1,6 +1,7 @@
 from db.engine import Base
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, String, Integer, DateTime, TIMESTAMP
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.orm import column_property
 
 class User(Base):
     __tablename__ = 'users'
@@ -22,6 +23,7 @@ class User(Base):
     current_liquidation_threshold = Column(Integer)
     ltv = Column(Integer)
     health_factor = Column(String(90), index=True)
+    created_at = Column(TIMESTAMP, info={"exclude_has_default": True})
 
     @staticmethod
     def from_dict(user: dict):
@@ -43,11 +45,18 @@ class User(Base):
 
         return d
     
+    @classmethod
+    def _remove_created_at(cls, user: dict):
+        user.pop('created_at', None)
+        return user
+    
     @staticmethod
     def upsert(users):
+        users = [User._remove_created_at(u) for u in users]
         insert_stmt = insert(User).values(users)
         table = User.metadata.tables[User.__tablename__]
         primKeyColNames = [pk_column.name for pk_column in table.primary_key.columns.values()]
-        updatedColNames = [column.name for column in table.columns if column.name not in primKeyColNames]
+        updatedColNames = [column.name for column in table.columns 
+                           if (column.name not in [primKeyColNames, 'created_at'])]
         onDuplicate = {colName:getattr(insert_stmt.inserted, colName) for colName in updatedColNames}
         return insert_stmt.on_duplicate_key_update(onDuplicate)

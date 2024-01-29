@@ -4,7 +4,7 @@ from services.contracts_service import ContractsService
 from models.db.reserve_configuration_data import Reserve
 from pools import LendingPool, PriceOracle
 from toolkit import toolkit_
-
+from logger import log
 
 class AssetsService:
     def __init__(self):
@@ -22,7 +22,9 @@ class AssetsService:
     @property
     def reserve_configurations(self):
         if not self._reserve_configurations:
+            log.info('Loading reserve configs')
             self._reserve_configurations = self._init_reserve_configs(self.reserves)
+            log.info(f"configs: {self._reserve_configurations}")
             # for reserve in self._reserve_configurations.values():
             #     session.merge(reserve)
             # session.commit()
@@ -58,13 +60,20 @@ class AssetsService:
     
     def _init_reserve_configs(self, reserves):
         reserve_configs = {}
-        for name, reserve_address in reserves.items():
+        existing_reserves = [r.name for r in session.query(Reserve.name)]
+        
+        for name, reserve_address in list(filter(lambda r: r[0] not in 
+                                                 existing_reserves, reserves.items())):
             res = self.protocolDataProvider.functions.getReserveConfigurationData(reserve_address).call()
             res.append(name)
             res.append(reserve_address)
             reserve_configs[name] = Reserve.from_raw_list(res)
+
+            # Add non existent reserves
+            session.add(Reserve.from_raw_list(res))
         # session.add_all(list(reserve_configs.values()))
-        # session.commit()
+        # session.merge(list(reserve_configs.values()))
+        session.commit()
         return reserve_configs
     
     def sync_reserve_configurations(self):

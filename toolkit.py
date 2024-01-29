@@ -21,8 +21,8 @@ class Toolkit(metaclass=Singleton):
             os.environ.get("ACCOUNT1_PRIVATE_KEY"))
         # password = os.environ.get("REDIS_PASSWORD").encode()
         url = os.environ.get("REDIS_URL")
-        self.redis = redis.from_url(url, decode_responses=True)
-        # self.redis = redis.Redis(charset="utf-8", decode_responses=True)
+        # self.redis = redis.from_url(url, decode_responses=True)
+        self.redis = redis.Redis(charset="utf-8", decode_responses=True)
     
     def is_connected(self):
         is_connected = toolkit_.w3.isConnected()
@@ -35,7 +35,9 @@ class Toolkit(metaclass=Singleton):
         # self.redis.set('MEMORY_USAGE', mem_usage_mb)  # in MB 
         # log.debug(f'Memory usage: {mem_usage_mb}')
         # print(f'Memory usage: {mem_usage_mb}')
+    
+    def get_current_block(self):
+        latest = self.w3.eth.get_block('latest')
+        print('Latest block number: %s' % latest['number'])
 
 toolkit_ = Toolkit()
-
-load_dotenv()  # take environment variables from .env.

@@ -1,23 +1,23 @@
 import asyncio
 import os
-import redis
+# import redis
 import traceback
-from sqlalchemy import select
 
 from web3 import Web3
 from models.db.settings import Settings
+from services.assets_service import AssetsService
+from services.contracts_service import ContractsService
 from services.liquidation_service import LiquidationService
 from services.users_service import UsersService
 from toolkit import toolkit_
 from pools import LendingPool
 from db.engine import session, create_tables
 from logger import log
+from dotenv import load_dotenv
 
-HEALTH_FACTOR_THRESHOLD = toolkit_.w3.toWei(1, 'ether')
-# HEALTH_FACTOR_THRESHOLD = 1251659644431660172
+HEALTH_FACTOR_THRESHOLD = toolkit_.w3.toWei(1, 'ether') # 1000000000000000000
 
 class TransactionsListener:
-
     def __init__(self) -> None:
         self._users_service = None
     
@@ -74,19 +74,22 @@ class TransactionsListener:
             if not toolkit_.is_connected():
                 log.error("Disconnected from node")
                 return
-
+            log.info("Finished retrieving events")
             toolkit_.trace_resource_usage()
             # start_block = 29756569 # Kovan
+            # start_block = 16998916 # Mainnet 7/4/23
             # I started scanning backwards from block 1427961
-            start_block = block # 14243784
-            from_block = start_block-len
-            to_block=start_block
-            withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=from_block, toBlock=to_block)
-            borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=from_block, toBlock=to_block)
-            repay_events = LendingPool.events.Repay.getLogs(fromBlock=from_block, toBlock=to_block)
-            # current_block = toolkit_.w3.eth.get_block_number()
-            liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=from_block, toBlock=to_block)
-            deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=from_block, toBlock=to_block)
+            # start_block = block # mainnet 16998916 / older was 14243784
+            # from_block = start_block-len
+            # to_block=start_block
+            # historical_paused_midterm_block = 16998916 # Mainnet 7/4/23
+            historical_paused_block = 14598916 # Mainnet 16/4/22
+            # current_block = 19106227
+            withdraw_events = LendingPool.events.Withdraw.getLogs(fromBlock=block-10000, toBlock=block)
+            borrow_events = LendingPool.events.Borrow.getLogs(fromBlock=block-10000, toBlock=block)
+            repay_events = LendingPool.events.Repay.getLogs(fromBlock=block-10000, toBlock=block)
+            # liquidate_events = LendingPool.events.LiquidationCall.getLogs(fromBlock=current_block-700, toBlock=current_block)
+            deposit_events = LendingPool.events.Deposit.getLogs(fromBlock=block-10000, toBlock=block)
             # flashloan_events = LendingPool.events.FlashLoan.getLogs(fromBlock=start_block-5, toBlock=start_block+5)
             # for e in borrow_events + withdraw_events + liquidate_events + repay_events + deposit_events:
             for e in borrow_events + withdraw_events + repay_events + deposit_events:# + repay_events + flashloan_events + liquidation_events:
@@ -107,13 +110,18 @@ class TransactionsListener:
 
 def run():
     try:
-        start_block = toolkit_.redis.get('CURR_BLOCK')  # in MB 
-        if not start_block:
-            start_block = session.query(Settings).get('LAST_BLOCK').value
-            log.info('Loaded start block from DB')
+        log.info("Running...")
+        # start_block = toolkit_.redis.get('CURR_BLOCK')
+        # start_block = toolkit_.w3.eth.get_block_number() # Get current block
+        historic_paused_block = 16998916 # Mainnet 7/4/23
+        # start_block = 19078786 # Mainnet 24/1/24
+        start_block = 19116227 # Mainnet 24/1/24
+        # if not start_block:
+        #     start_block = session.query(Settings).get('LAST_BLOCK').value
+        #     log.info('Loaded start block from DB')
 
         curr_block = int(start_block)
-        log.info(f'Start block: {start_block}')
+        # log.info(f'Start block: {start_block}')
         events_len = int(os.environ.get('EVENTS_LENGTH'))
         listener = TransactionsListener()
         for i in range (1, int(os.environ.get('MAX_EVENT_SCAN_ITERATIONS'))):
@@ -150,18 +158,62 @@ def run():
 #             pass
 
 def main():
-    # add_user_reserves(['0xa25A9b7c73158B3B34215925796Ce6Aa8100C13a'])
-    val = 27519318177421073050
+    load_dotenv() # load environment variables from .env.
+    
+    
+    # svc = LiquidationService()
+    # svc.init_reserve_configs()
+    # loan = svc.build_loan_from_user("0x9a8599e32a5bc5F0f174f3aB0Fa5a60B496B0D22")
+    # loan = svc.build_loan_from_user("0x618730eCCB375416aB5129D9eDCc205e3169F979")
+    run()
+    # users_service = UsersService()
+    # users_service.print_mapper_info()
+
+    # toolkit_.get_current_block()
+    # create_tables()
+    # print('Done create tables')
+    # svc = UsersService()
+    # svc.save_backup_user()
+
+    # WBTC = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
+    # svc = AssetsService()
+    # print(f"stETH price {svc.get_asset_price('stETH')}")
+    # print(f"USDC price {svc.get_asset_price('USDC')}")
+
+    # users_service = UsersService()
+    # users_reserves = users_service.backup_all_user_reserves()
+    # # users = users_service.backup_all_users()
+
+    # amount = 0.5 + 0.075
+    # amount_wei = toolkit_.w3.toWei(amount, 'ether')
+    # contract = ContractsService.getContractInstance('0x7F7a61449B7DD024d3281731a2bc801cccbFeBBf',
+    # 'FlashLiquidator.json')
+    # nonce = toolkit_.w3.eth.getTransactionCount(toolkit_.account.address)
+    # dai = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD'
+    # aave = '0xB597cd8D3217ea6477232F9217fa70837ff667Af'
+    # liquidated_user = '0x9998b4021d410c1E8A7C512EF68c9d613B5B1667'
+    # func = contract.functions.flashLoanCall(dai, aave, amount_wei, 2, 
+    #     liquidated_user, False)
+    # gas = func.estimateGas()
+    # txHash = ContractsService.exec_contract(toolkit_.account, nonce, func, gas)
+
+
+    # # add_user_reserves(['0xa25A9b7c73158B3B34215925796Ce6Aa8100C13a'])
+    
+    # val = 2.6023962585783004e22 # 3.8507189173140554e20
+    # value = toolkit_.w3.fromWei(val, 'ether')
+    # balance = toolkit_.w3.fromWei(37298422403104225, 'ether')
+    # print(value)
     # conv = val.astype(int).item()
-    create_tables()
+    # create_tables()
 
     # from models.db.settings import Settings
     # session.add(Settings('LAST_BLOCK', 14243384))
     # session.commit()
-    run()
+    # run()
 
 
-    # value = toolkit_.w3.fromWei(200917325452379653357, 'ether')
+    
     # debtToCover = 3553656655
     # debtPriceUsd = 382283014377909
     # debt_eth = toolkit_.w3.fromWei(debtToCover, 'ether')

@@ -66,8 +66,14 @@ class UserReserveData(Base):
 
         return d
     
+    @classmethod
+    def _remove_created_at(cls, u: dict):
+        u.pop('created_at', None)
+        return u
+    
     @staticmethod
     def upsert(users):
+        users = [UserReserveData._remove_created_at(u) for u in users]
         insert_stmt = insert(UserReserveData).values(users)
         table = UserReserveData.metadata.tables[UserReserveData.__tablename__]
         primKeyColNames = [pk_column.name for pk_column in table.primary_key.columns.values()]

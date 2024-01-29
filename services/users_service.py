@@ -5,7 +5,7 @@ import consts
 import csv
 
 from typing import Tuple
-from db.engine import session
+from db.engine import session, engine
 from models.db.user import User
 from models.db.user_bck import UserBck
 from models.db.user_reserve_data import UserReserveData
@@ -71,7 +71,7 @@ class UsersService:
             return None
         user_data = {'id': address, 'total_collateral_eth': user_data[0], 'total_debt_eth': user_data[1], 'available_borrows_eth': user_data[2],
                     'current_liquidation_threshold': user_data[3], 'ltv': user_data[4], 'health_factor': user_data[5]}
-        # log.debug(f'User data: {user_data}')
+        log.debug(f'User data: {user_data}')
         return False, User.from_dict(user_data)
     
     def get_balance(self, asset_contract: str) -> int:
@@ -198,7 +198,7 @@ class UsersService:
                     res = await asyncio.gather(*[func for func in tasks])
                     if res:
                         await self.save_user_data_tuple(res)
-                        log.info(f'Saved {len(res)} users reserve data')
+                        # log.info(f'Saved {len(res)} users reserve data')
                         toolkit_.trace_resource_usage()
                         tasks.clear()
                         count = 0
@@ -210,7 +210,7 @@ class UsersService:
                 res = await asyncio.gather(*[func for func in tasks])
                 if res:
                     await self.save_user_data_tuple(res)
-                    log.info(f'Saved {len(res)} users reserve data')
+                    # log.info(f'Saved {len(res)} users reserve data')
             log.info('Finished processing all events')
             toolkit_.trace_resource_usage()
             # res = await asyncio.gather(*[func() for func in tasks])
@@ -231,7 +231,8 @@ class UsersService:
                 if user_reserves:
                     users_reserves.extend(user_reserves)
                 count += 1
-                if count >= 20:
+                if count >= 5:
+                    log.info("Saving users to DB..")
                     self.users_store.create_users_with_reserves(users, 
                                     users_reserves)
                     self.save_users_to_redis(users)
@@ -346,4 +347,18 @@ class UsersService:
         
         outfile.close()
         return users
+
+    def print_mapper_info(self):
+        # User.__table__.drop(engine)
+        # User.__table__.create(engine)
+        # print(inspect(User).columns.created_at.info)
+        # print([column.name for column in User.metadata.tables[User.__tablename__].columns if column.name not in inspect(User).columns.created_at.info('info').get('has_db_default', False)])
+        # insert_stmt = User.insert().insert(User).values(users).remove('created_at')
+        users = [{'id': 1, 'd': True, 'created_at': 'fdfd'}, {'id': 2, 'd': False}]
+        users = [User._remove_created_at(u) for u in users]
+        print(users)
+        # print([column.name for column in inspect(User).columns 
+        #                    if (column.name not in ['id', 'created_at'])])
+        # print([column.name for column in inspect(User).columns if inspect(User).columns.created_at.info.get('exclude_has_default', False)])
+        # print(inspect(User).columns.created_at.info)
 

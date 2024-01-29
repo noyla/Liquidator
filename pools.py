@@ -1,6 +1,7 @@
 import consts
 from services.contracts_service import ContractsService
 
+# TODO: put it under a class PoolV2, inherit from a base and create PoolV3
 
 def _init_lending_pool_address_provider():
     lendingPoolAddressProviderRegistry = ContractsService.getContractInstance(consts.LENDING_POOL_ADDRESS_PROVIDER_REGISTRY, 
@@ -11,10 +12,10 @@ def _init_lending_pool_address_provider():
                                                 lendingPool_providers))
     except StopIteration:
         return None
-    return ContractsService.getContractInstance(lendingpool_provider_address, "LENDING_POOL_PROVIDER.json") # Kovan
+    return ContractsService.getContractInstance(lendingpool_provider_address, "LENDING_POOL_PROVIDER.json")
 
 def _init_lending_pool():
-    # lendingPoolAddressProvider = Toolkit.getContractInstance("0x88757f2f99175387aB4C6a4b3067c77A695b0349", "LENDING_POOL_PROVIDER.json") # Kovan
+    # lendingPoolAddressProvider = Toolkit.getContractInstance("0x88757f2f99175387aB4C6a4b3067c77A695b0349", "LENDING_POOL_PROVIDER.json")
     # lendingPool_address = '0x2646FcF7F0AbB1ff279ED9845AdE04019C907EBE'
     lendingPool_address = LendingPoolAddressProvider.functions.getLendingPool().call()
     if not lendingPool_address:
@@ -33,3 +34,6 @@ LendingPoolAddressProvider = _init_lending_pool_address_provider()
 ProtocolDataProvider = _init_protocol_data_provider()
 LendingPool = _init_lending_pool()
 PriceOracle = _init_price_oracle()
+
+if __name__ == '__main__':
+    print(LendingPool.address)
